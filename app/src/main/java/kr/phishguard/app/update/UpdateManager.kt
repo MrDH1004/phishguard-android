@@ -40,14 +40,22 @@ sealed class DownloadResult {
 
 object UpdateManager {
 
-    private fun open(url: String): HttpURLConnection =
+    private fun open(url: String, accept: String = "application/vnd.github+json"): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 10_000
-            readTimeout = 10_000
+            connectTimeout = 15_000
+            readTimeout = 30_000
             instanceFollowRedirects = true
             setRequestProperty("User-Agent", "PhishGuard-Updater")
-            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("Accept", accept)
         }
+
+    /** 일시적 네트워크 오류(시간 초과 등)는 한 번 더 시도한다. */
+    private fun <T> withRetry(block: () -> T): T = try {
+        block()
+    } catch (e: IOException) {
+        Log.w(TAG, "retrying after ${e.javaClass.simpleName}")
+        block()
+    }
 
     /** 이 앱의 네트워크 사용은 업데이트 확인/다운로드뿐. 실패는 조용히 Failed. */
     fun check(): CheckResult {
@@ -67,7 +75,9 @@ object UpdateManager {
             for (i in 0 until assets.length()) {
                 val a = assets.getJSONObject(i)
                 val name = a.optString("name")
-                val url = a.optString("browser_download_url")
+                // github.com/.../releases/download 경로는 지역 엣지에서 504·지연이 관찰됨(2026-11-09).
+                // API 자산 경로 + Accept: application/octet-stream 으로 받는다.
+                val url = a.optString("url").ifEmpty { a.optString("browser_download_url") }
                 if (name.endsWith(".apk.sha256")) sha = url
                 else if (name.endsWith(".apk")) apk = url
             }
@@ -97,10 +107,10 @@ object UpdateManager {
         var stage = "다운로드"
         try {
             onStatus("다운로드 중…")
-            download(info.apkUrl, apk, onProgress)
+            withRetry { download(info.apkUrl, apk, onProgress) }
             stage = "검증 정보 받기"
             onStatus("무결성 확인 중…")
-            val expected = UpdateLogic.parseSha256(fetchText(info.sha256Url))
+            val expected = UpdateLogic.parseSha256(withRetry { fetchText(info.sha256Url) })
                 ?: return fail(apk, "검증 정보를 읽지 못해 설치하지 않았습니다. 지금 버전은 그대로 안전하게 쓸 수 있습니다. 잠시 후 '업데이트'를 다시 눌러 주세요.")
             if (!UpdateLogic.hashMatches(expected, sha256Hex(apk))) {
                 return fail(apk, "받은 파일이 손상되었거나 변조되어 설치하지 않았습니다. 지금 버전은 그대로 안전하게 쓸 수 있습니다. 잠시 후 '업데이트'를 다시 눌러 주세요.")
@@ -128,7 +138,7 @@ object UpdateManager {
     }
 
     private fun download(url: String, dest: File, onProgress: (Float) -> Unit) {
-        val conn = open(url)
+        val conn = open(url, "application/octet-stream")
         try {
             if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
             val total = conn.contentLengthLong
@@ -158,7 +168,7 @@ object UpdateManager {
     }
 
     private fun fetchText(url: String): String {
-        val conn = open(url)
+        val conn = open(url, "application/octet-stream")
         try {
             if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
             return conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
