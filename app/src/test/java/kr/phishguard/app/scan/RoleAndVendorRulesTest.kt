@@ -166,4 +166,15 @@ class RoleAndVendorRulesTest {
         assertTrue(RoleDetector.isSignedBy(RoleDetector.Signers(setOf("aa", "bb"), multiple = true), system))
         assertFalse(RoleDetector.isSignedBy(RoleDetector.Signers(emptySet(), multiple = false), system))
     }
+
+    @Test
+    fun unknownSourceWithCameraMicIsFlagged() {
+        assertTrue("unknown_camera_mic" in ids(input(source = InstallSource.UNKNOWN, perms = setOf(PermCategory.CAMERA_MIC))))
+    }
+
+    @Test
+    fun playStoreCameraMicIsNotFlagged() {
+        assertFalse("unknown_camera_mic" in ids(input(source = InstallSource.PLAY_STORE, perms = setOf(PermCategory.CAMERA_MIC))))
+        assertFalse("unknown_camera_mic" in ids(input(source = InstallSource.UNKNOWN, perms = emptySet())))
+    }
 }

@@ -230,6 +230,14 @@ object RiskRules {
                 granted(it, PermCategory.INSTALL_PACKAGES)
         },
         RiskRule(
+            "unknown_camera_mic",
+            "외부 설치 + 마이크·카메라 권한 허용",
+            15,
+            "몰래 주변 소리를 녹음하거나 카메라로 촬영해 밖으로 보낼 수 있습니다.",
+        ) {
+            unknownSource(it) && granted(it, PermCategory.CAMERA_MIC)
+        },
+        RiskRule(
             ID_VENDOR_SIGNED,
             "제조사(기기) 서명 앱",
             0,

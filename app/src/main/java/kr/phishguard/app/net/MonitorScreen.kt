@@ -125,6 +125,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item { Spacer(Modifier.padding(4.dp)) }
+        item { SensorInUseCard() }
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
