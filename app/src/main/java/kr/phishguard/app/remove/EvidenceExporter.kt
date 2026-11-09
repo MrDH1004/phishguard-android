@@ -7,12 +7,14 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import kr.phishguard.app.net.UsageStats
+import kr.phishguard.app.report.Hashing
 import kr.phishguard.app.scan.AppInfo
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,6 +28,8 @@ data class EvidenceResult(
     /** 다운로드 폴더 저장 위치 설명 */
     val savedTo: String,
     val entries: List<String>,
+    /** 최종 ZIP 파일의 SHA-256 (소문자 hex). 모르면 빈 문자열 */
+    val zipSha256: String = "",
 )
 
 /** 증거 ZIP(APK, 권한목록, 설치정보, 데이터 사용량 CSV) 생성 후 다운로드 폴더에 저장 */
@@ -43,30 +47,47 @@ object EvidenceExporter {
         val zipFile = File(dir, name)
         val entries = mutableListOf<String>()
 
+        val hashes = mutableListOf<Pair<String, String>>()
         ZipOutputStream(zipFile.outputStream().buffered()).use { zip ->
             fun put(entry: String, bytes: ByteArray) {
                 zip.putNextEntry(ZipEntry(entry))
                 zip.write(bytes)
                 zip.closeEntry()
                 entries += entry
+                hashes += entry to Hashing.sha256Hex(bytes)
             }
             fun putFile(entry: String, path: String) {
                 val f = File(path)
                 if (!f.canRead()) return
+                val md = MessageDigest.getInstance("SHA-256")
                 zip.putNextEntry(ZipEntry(entry))
-                FileInputStream(f).use { it.copyTo(zip) }
+                FileInputStream(f).use { input ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        zip.write(buf, 0, n)
+                        md.update(buf, 0, n)
+                    }
+                }
                 zip.closeEntry()
                 entries += entry
+                hashes += entry to Hashing.hex(md.digest())
             }
             app.sourceDir?.let { putFile("apk/base.apk", it) }
             app.splitSourceDirs.forEach { putFile("apk/${File(it).name}", it) }
             put("permissions.json", permissionsJson(app).toByteArray(Charsets.UTF_8))
             put("install-info.json", installJson(app).toByteArray(Charsets.UTF_8))
             put("data-usage.csv", usageCsv(context, app).toByteArray(Charsets.UTF_8))
+            zip.putNextEntry(ZipEntry(Hashing.MANIFEST_NAME))
+            zip.write(Hashing.manifest(hashes).toByteArray(Charsets.UTF_8))
+            zip.closeEntry()
+            entries += Hashing.MANIFEST_NAME
         }
+        val zipSha256 = Hashing.sha256Hex(zipFile)
 
         val savedTo = saveToDownloads(context, zipFile, name)
-        return EvidenceResult(name, zipFile, savedTo, entries)
+        return EvidenceResult(name, zipFile, savedTo, entries, zipSha256)
     }
 
     private fun permissionsJson(app: AppInfo): String {
@@ -130,11 +151,11 @@ object EvidenceExporter {
     }
 
     @Throws(IOException::class)
-    private fun saveToDownloads(context: Context, src: File, name: String): String {
+    internal fun saveToDownloads(context: Context, src: File, name: String, mime: String = "application/zip"): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, name)
-                put(MediaStore.Downloads.MIME_TYPE, "application/zip")
+                put(MediaStore.Downloads.MIME_TYPE, mime)
                 put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }

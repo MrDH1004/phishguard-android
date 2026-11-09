@@ -23,17 +23,34 @@ object ScanRepository {
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val apps: StateFlow<List<AppInfo>> = _apps
 
+    /** 현재 기본 전화/문자 앱 (검사 머리말 표시용). 검사 전에는 null. */
+    data class DefaultApps(
+        val dialerPackage: String?,
+        val dialerLabel: String?,
+        val smsPackage: String?,
+        val smsLabel: String?,
+    )
+
+    private val _defaults = MutableStateFlow<DefaultApps?>(null)
+    val defaults: StateFlow<DefaultApps?> = _defaults
+
+    /** 마지막 전체 검사에서 모은 시스템 앱 서명 SHA-256 집합. 앱 하나 다시 조사할 때 재사용. */
+    @Volatile
+    private var systemSignersCache: Set<String>? = null
+
     /** 기기 앱 전체를 조사해 결과를 갱신하고 반환 (IO 스레드에서 호출) */
     fun scan(context: Context, onProgress: ((done: Int, total: Int) -> Unit)? = null): List<AppInfo> {
         val appContext = context.applicationContext
         val pm = appContext.packageManager
-        val env = ScanEnv.create(appContext)
         val packages = try {
             getInstalledPackagesCompat(pm)
         } catch (e: RuntimeException) {
             Log.e(TAG, "getInstalledPackages failed", e)
             emptyList()
         }
+        val systemSigners = systemSignersOf(packages)
+        systemSignersCache = systemSigners
+        val env = ScanEnv.create(appContext, systemSigners)
         val now = System.currentTimeMillis()
         val result = ArrayList<AppInfo>(packages.size)
         packages.forEachIndexed { index, pi ->
@@ -45,6 +62,7 @@ object ScanRepository {
             onProgress?.invoke(index + 1, packages.size)
         }
         _apps.value = result
+        _defaults.value = defaultAppsOf(pm, env.roles)
         HistoryTracker.sync(appContext, result)
         return result
     }
@@ -54,8 +72,13 @@ object ScanRepository {
         val appContext = context.applicationContext
         val pm = appContext.packageManager
         val info: AppInfo? = try {
-            val pi = getPackageInfoCompat(pm, packageName, PackageManager.GET_PERMISSIONS)
-            buildAppInfo(appContext, pm, pi, ScanEnv.create(appContext), System.currentTimeMillis())
+            val pi = getPackageInfoCompat(pm, packageName, PackageManager.GET_PERMISSIONS or RoleDetector.signingFlag)
+            val systemSigners = systemSignersCache ?: systemSignersOf(getInstalledPackagesCompat(pm)).also {
+                systemSignersCache = it
+            }
+            val env = ScanEnv.create(appContext, systemSigners)
+            _defaults.value = defaultAppsOf(pm, env.roles)
+            buildAppInfo(appContext, pm, pi, env, System.currentTimeMillis())
         } catch (e: PackageManager.NameNotFoundException) {
             Log.i(TAG, "package not installed: $packageName")
             null
@@ -72,6 +95,37 @@ object ScanRepository {
 
     // ---- 내부 구현 ----
 
+    /** 미리 설치된 시스템 앱(FLAG_SYSTEM)의 서명 인증서 SHA-256 집합 */
+    private fun systemSignersOf(packages: List<PackageInfo>): Set<String> {
+        val out = HashSet<String>()
+        packages.forEach { pi ->
+            val ai = pi.applicationInfo ?: return@forEach
+            if ((ai.flags and ApplicationInfo.FLAG_SYSTEM) != 0) out.addAll(RoleDetector.signersOf(pi).digests)
+        }
+        return out
+    }
+
+    private fun defaultAppsOf(pm: PackageManager, roles: RoleDetector.Snapshot): DefaultApps {
+        fun labelOf(pkg: String?): String? {
+            if (pkg == null) return null
+            return find(pkg)?.label ?: try {
+                pm.getApplicationLabel(getApplicationInfoCompat(pm, pkg)).toString()
+            } catch (e: PackageManager.NameNotFoundException) {
+                Log.w(TAG, "default app label failed: $pkg", e)
+                pkg
+            }
+        }
+        return DefaultApps(roles.defaultDialer, labelOf(roles.defaultDialer), roles.defaultSms, labelOf(roles.defaultSms))
+    }
+
+    private fun getApplicationInfoCompat(pm: PackageManager, pkg: String): ApplicationInfo =
+        if (Build.VERSION.SDK_INT >= 33) {
+            pm.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0L))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getApplicationInfo(pkg, 0)
+        }
+
     private class ScanEnv(
         val launcherPackages: Set<String>,
         val activeAdmins: Set<String>,
@@ -79,9 +133,11 @@ object ScanRepository {
         val notificationSetting: String?,
         val appOps: AppOpsManager?,
         val selfPackage: String,
+        val roles: RoleDetector.Snapshot,
+        val systemSigners: Set<String>,
     ) {
         companion object {
-            fun create(context: Context): ScanEnv {
+            fun create(context: Context, systemSigners: Set<String>): ScanEnv {
                 val pm = context.packageManager
                 val launcher = try {
                     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -110,6 +166,8 @@ object ScanRepository {
                     notificationSetting = secureString(context, "enabled_notification_listeners"),
                     appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager,
                     selfPackage = context.packageName,
+                    roles = RoleDetector.snapshot(context),
+                    systemSigners = systemSigners,
                 )
             }
 
@@ -122,13 +180,15 @@ object ScanRepository {
         }
     }
 
-    private fun getInstalledPackagesCompat(pm: PackageManager): List<PackageInfo> =
-        if (Build.VERSION.SDK_INT >= 33) {
-            pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS.toLong()))
+    private fun getInstalledPackagesCompat(pm: PackageManager): List<PackageInfo> {
+        val flags = PackageManager.GET_PERMISSIONS or RoleDetector.signingFlag
+        return if (Build.VERSION.SDK_INT >= 33) {
+            pm.getInstalledPackages(PackageManager.PackageInfoFlags.of(flags.toLong()))
         } else {
             @Suppress("DEPRECATION")
-            pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            pm.getInstalledPackages(flags)
         }
+    }
 
     private fun getPackageInfoCompat(pm: PackageManager, pkg: String, flags: Int): PackageInfo =
         if (Build.VERSION.SDK_INT >= 33) {
@@ -259,6 +319,13 @@ object ScanRepository {
 
         val grantedCategories = perms.filter { it.granted }.mapNotNull { it.category }.toSet()
         val isSelf = pkg == env.selfPackage
+        val declaresAccessibility = perms.any { it.category == PermCategory.ACCESSIBILITY }
+        val isDefaultDialer = pkg == env.roles.defaultDialer
+        val isDefaultSms = pkg == env.roles.defaultSms
+        val declaresCallRedirection = pkg in env.roles.callRedirection
+        val declaresCallScreening = pkg in env.roles.callScreening
+        val declaresInCall = pkg in env.roles.inCall
+        val vendorSigned = RoleDetector.isSignedBy(RoleDetector.signersOf(pi), env.systemSigners)
         val input = RiskInput(
             packageName = pkg,
             label = label,
@@ -271,6 +338,13 @@ object ScanRepository {
             hasEnabledAccessibility = accessibilityEnabled,
             hasEnabledNotificationListener = notificationEnabled,
             isSelf = isSelf,
+            declaresAccessibility = declaresAccessibility,
+            isDefaultDialer = isDefaultDialer,
+            isDefaultSms = isDefaultSms,
+            declaresCallRedirection = declaresCallRedirection,
+            declaresCallScreening = declaresCallScreening,
+            declaresInCallService = declaresInCall,
+            vendorSigned = vendorSigned,
         )
         val risk = RiskScorer.score(input, now)
 
@@ -294,6 +368,12 @@ object ScanRepository {
             riskScore = risk.score,
             riskLevel = risk.level,
             matchedRules = risk.matchedRules,
+            isDefaultDialer = isDefaultDialer,
+            isDefaultSms = isDefaultSms,
+            declaresCallRedirection = declaresCallRedirection,
+            declaresCallScreening = declaresCallScreening,
+            declaresInCallService = declaresInCall,
+            vendorSigned = vendorSigned,
         )
     }
 }

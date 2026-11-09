@@ -1,5 +1,6 @@
 package kr.phishguard.app.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,7 +23,11 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavType
@@ -31,6 +36,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kr.phishguard.app.background.BackgroundScheduler
+import kr.phishguard.app.background.InstallWatchWorker
 import kr.phishguard.app.history.HistoryScreen
 import kr.phishguard.app.net.BlockList
 import kr.phishguard.app.net.MonitorScreen
@@ -42,11 +49,30 @@ import kr.phishguard.app.update.SettingsScreen
 import kr.phishguard.app.update.UpdatePromptHost
 
 class MainActivity : ComponentActivity() {
+    private var pendingTab by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         BlockList.load(applicationContext)
         TrustList.load(applicationContext)
-        setContent { PhishGuardTheme { AppRoot() } }
+        BackgroundScheduler.ensureScheduled(applicationContext)
+        pendingTab = intent?.getStringExtra(InstallWatchWorker.EXTRA_OPEN_TAB)
+        setContent {
+            PhishGuardTheme {
+                var onboardingDone by remember { mutableStateOf(isOnboardingDone(applicationContext)) }
+                if (onboardingDone) {
+                    AppRoot(pendingTab = pendingTab, onTabHandled = { pendingTab = null })
+                } else {
+                    OnboardingScreen(onFinish = { onboardingDone = true })
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingTab = intent.getStringExtra(InstallWatchWorker.EXTRA_OPEN_TAB)
     }
 }
 
@@ -60,10 +86,20 @@ private val tabs = listOf(
 )
 
 @Composable
-fun AppRoot() {
+fun AppRoot(pendingTab: String? = null, onTabHandled: () -> Unit = {}) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
+    LaunchedEffect(pendingTab) {
+        if (pendingTab == "history") {
+            nav.navigate("history") {
+                popUpTo("scan") { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+        if (pendingTab != null) onTabHandled()
+    }
     UpdatePromptHost()
     Scaffold(
         bottomBar = {

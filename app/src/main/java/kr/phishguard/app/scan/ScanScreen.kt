@@ -14,7 +14,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -64,6 +70,7 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
     var includeTrusted by rememberSaveable { mutableStateOf(false) }
     val trusted by TrustList.trusted.collectAsStateWithLifecycle()
     var recentDays by rememberSaveable { mutableIntStateOf(7) }
+    val defaults by ScanRepository.defaults.collectAsStateWithLifecycle()
 
     fun startScan() {
         if (scanning) return
@@ -119,11 +126,28 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
         else -> "표시할 앱이 없습니다.$trustedNote '시스템 앱 포함'을 켜면 시스템 앱도 볼 수 있습니다."
     }
     val rowPadding = Modifier.padding(horizontal = 16.dp)
+    // 아는 앱으로 표시하지 않은 앱 중 기본 전화/문자 앱을 차지한 의심 앱
+    val roleHijackers = apps.filter {
+        it.packageName !in trusted && it.matchedRules.any { r -> r.id == RiskRules.ID_DEFAULT_ROLE_HIJACK }
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
+        items(roleHijackers, key = { "hijack_${it.packageName}" }) { app ->
+            RoleHijackBanner(app, onClick = { onOpenApp(app.packageName) }, modifier = rowPadding.padding(bottom = 8.dp))
+        }
         item(key = "scan_button") {
             Button(onClick = { startScan() }, enabled = !scanning, modifier = rowPadding.fillMaxWidth()) {
                 Text(if (scanning) "검사 중…" else if (apps.isEmpty()) "검사 시작" else "다시 검사")
+            }
+        }
+        defaults?.let { d ->
+            item(key = "default_apps") {
+                Text(
+                    "기본 전화: ${d.dialerLabel ?: "없음"} · 기본 문자: ${d.smsLabel ?: "없음"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = rowPadding.padding(top = 8.dp),
+                )
             }
         }
         if (scanning) {
@@ -216,6 +240,33 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
     }
 }
 
+/** 기본 전화/문자 앱이 의심 앱으로 바뀌었을 때 맨 위 경고. 색 외에 아이콘과 글자로 알린다. */
+@Composable
+private fun RoleHijackBanner(app: AppInfo, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(24.dp))
+                Text(
+                    "기본 전화/문자 앱이 의심 앱으로 바뀌어 있습니다: ${app.label}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) { Text("확인하기") }
+        }
+    }
+}
+
 @Composable
 private fun SummaryCount(label: String, count: Int, level: RiskLevel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -274,6 +325,8 @@ internal fun flagLabels(app: AppInfo): List<String> = buildList {
     if (app.isActiveDeviceAdmin) add("기기관리자")
     if (app.hasEnabledAccessibility) add("접근성")
     if (app.hasEnabledNotificationListener) add("알림 접근")
+    if (app.isDefaultDialer && !app.isSystem) add("기본 전화 앱")
+    if (app.isDefaultSms && !app.isSystem) add("기본 문자 앱")
     val granted = app.permissions.filter { it.granted }.mapNotNull { it.category }.toSet()
     if (PermCategory.SMS in granted) add("문자")
     if (PermCategory.CALL_LOG in granted) add("통화기록")

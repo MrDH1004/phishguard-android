@@ -84,6 +84,7 @@ import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskHigh
 import kr.phishguard.app.ui.RiskLow
 import kr.phishguard.app.ui.ScreenTitle
+import kr.phishguard.app.ui.riskOnColor
 
 private const val TAG = "PG-Removal"
 
@@ -417,7 +418,7 @@ private fun Stepper(current: Int) {
             val done = i < current
             val active = i == current
             val (circle, onCircle) = when {
-                done -> RiskLow to Color.White
+                done -> RiskLow to riskOnColor
                 active -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
                 else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
             }

@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -107,6 +110,9 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (app.matchedRules.any { it.id == RiskRules.ID_DEFAULT_ROLE_HIJACK }) {
+                DefaultRoleWarningCard(app)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppIcon(app.packageName, size = 56.dp)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -130,9 +136,26 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
                 Text("해당되는 의심 규칙이 없습니다.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 app.matchedRules.forEach { r ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(r.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Text("+${r.points}", style = MaterialTheme.typography.bodyMedium, color = RiskHigh)
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(r.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            if (r.points > 0) {
+                                Text("+${r.points}", style = MaterialTheme.typography.bodyMedium, color = RiskHigh)
+                            } else {
+                                Text(
+                                    "참고",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (r.plainExplanation.isNotEmpty()) {
+                            Text(
+                                r.plainExplanation,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -177,6 +200,11 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
                 if (app.hasEnabledAccessibility) add("접근성 활성")
                 if (app.hasEnabledNotificationListener) add("알림 접근 활성")
                 if (!app.hasLauncherIcon && !app.isSystem) add("아이콘 숨김")
+                if (app.isDefaultDialer) add("기본 전화 앱")
+                if (app.isDefaultSms) add("기본 문자 앱")
+                if (app.declaresInCallService) add("전화 화면 대체 기능 있음")
+                if (app.declaresCallRedirection) add("거는 번호 바꾸기 기능 있음")
+                if (app.declaresCallScreening) add("걸려온 전화 가려내기 기능 있음")
             }
             if (flags.isEmpty()) StatusLine(Icons.Filled.Check, "특이 상태 없음", MaterialTheme.colorScheme.onSurface)
             flags.forEach { StatusLine(Icons.Filled.Warning, it, RiskHigh) }
@@ -189,6 +217,60 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
             }
             grouped[null]?.let { PermissionGroup("기타", it, false) }
         }
+    }
+}
+
+/** 의심 앱이 기본 전화/문자 앱일 때 맨 위 경고. 112·은행 전화 가로채기를 설명하고 기본 앱 설정으로 보낸다. */
+@Composable
+private fun DefaultRoleWarningCard(app: AppInfo) {
+    val context = LocalContext.current
+    var openFailed by remember { mutableStateOf(false) }
+    val role = when {
+        app.isDefaultDialer && app.isDefaultSms -> "전화·문자"
+        app.isDefaultSms -> "문자"
+        else -> "전화"
+    }
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(24.dp))
+                Text(
+                    "이 앱이 기본 $role 앱입니다",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 8.dp).semantics { heading() },
+                )
+            }
+            Text(
+                "기본 전화·문자 앱은 모든 통화와 문자를 처리합니다. 사기범의 앱이 이 자리를 차지하면 " +
+                    "112나 은행에 전화해도 사기범에게 연결되고, 은행 문자도 빼앗길 수 있습니다. " +
+                    "기본 앱 설정에서 원래 쓰던 전화·문자 앱(예: 삼성 전화, 메시지)으로 바꾸세요.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = { openFailed = !openDefaultAppsSettings(context) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("기본 앱 설정 열기") }
+            if (openFailed) {
+                ErrorText("기본 앱 설정을 열 수 없습니다. 설정 > 애플리케이션 > 기본 앱 선택에서 직접 바꾸세요.")
+            }
+        }
+    }
+}
+
+private fun openDefaultAppsSettings(context: android.content.Context): Boolean {
+    val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    return try {
+        context.startActivity(intent)
+        true
+    } catch (e: ActivityNotFoundException) {
+        Log.w(TAG, "default apps settings unavailable", e)
+        false
     }
 }
 

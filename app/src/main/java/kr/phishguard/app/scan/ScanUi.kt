@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import kr.phishguard.app.ui.RiskHigh
 import kr.phishguard.app.ui.RiskLow
 import kr.phishguard.app.ui.RiskMedium
+import kr.phishguard.app.ui.riskOnColor
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,6 +82,6 @@ fun RiskBadge(level: RiskLevel, score: Int? = null) {
             .padding(horizontal = 10.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Text(text, color = riskOnColor, style = MaterialTheme.typography.labelMedium)
     }
 }

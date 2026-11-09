@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kr.phishguard.app.report.Hashing
 import kr.phishguard.app.scan.AppInfo
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskLow
@@ -49,6 +51,7 @@ fun EvidenceSaveSection(app: AppInfo) {
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var savedTo by rememberSaveable(app.packageName) { mutableStateOf<String?>(null) }
     var fileName by rememberSaveable(app.packageName) { mutableStateOf<String?>(null) }
+    var zipSha by rememberSaveable(app.packageName) { mutableStateOf("") }
     var shareFailed by rememberSaveable { mutableStateOf(false) }
 
     fun runExport() {
@@ -59,6 +62,7 @@ fun EvidenceSaveSection(app: AppInfo) {
                 val result = withContext(Dispatchers.IO) { EvidenceExporter.export(context, app) }
                 savedTo = result.savedTo
                 fileName = result.fileName
+                zipSha = result.zipSha256
             } catch (e: java.io.IOException) {
                 Log.w(TAG, "evidence export failed (IO)", e)
                 error = "증거 파일을 저장하지 못했습니다. 저장 공간이 충분한지 확인한 뒤 다시 눌러 주세요."
@@ -112,6 +116,14 @@ fun EvidenceSaveSection(app: AppInfo) {
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
+            if (zipSha.isNotEmpty()) {
+                SelectionContainer {
+                    Column {
+                        Text("ZIP SHA-256: ${Hashing.short(zipSha)}", style = MaterialTheme.typography.bodySmall)
+                        Text(zipSha, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
             OutlinedButton(
                 onClick = {
                     shareFailed = false

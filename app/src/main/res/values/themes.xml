@@ -2,5 +2,6 @@
 <resources>
     <style name="Theme.PhishGuard" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">#FF1D3E79</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
