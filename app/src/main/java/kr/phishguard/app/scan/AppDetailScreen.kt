@@ -11,14 +11,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,22 +38,30 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskHigh
+import kr.phishguard.app.ui.SectionTitle
 
 private const val TAG = "AppDetail"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val apps by ScanRepository.apps.collectAsStateWithLifecycle()
     val app = apps.firstOrNull { it.packageName == packageName }
     var resolving by remember { mutableStateOf(app == null) }
+    var settingsOpenFailed by remember { mutableStateOf(false) }
 
     LaunchedEffect(packageName) {
         if (ScanRepository.find(packageName) == null) {
@@ -53,125 +71,167 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
         resolving = false
     }
 
-    if (app == null) {
-        Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if (resolving) "앱 정보를 불러오는 중..." else "앱을 찾을 수 없음 (이미 삭제됨)")
-            OutlinedButton(onClick = onBack) { Text("뒤로") }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(app?.label ?: "앱 정보", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+                    }
+                },
+            )
+        },
+    ) { inner ->
+        if (app == null) {
+            Text(
+                if (resolving) "앱 정보를 불러오는 중…" else "앱을 찾을 수 없습니다. 이미 삭제된 것 같습니다.",
+                modifier = Modifier
+                    .padding(inner)
+                    .padding(16.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            return@Scaffold
         }
-        return
-    }
 
-    val isSelf = app.packageName == context.packageName
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AppIcon(app.packageName, size = 56.dp)
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(app.label, style = MaterialTheme.typography.titleLarge)
-                Text(app.packageName, fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
-                Text("버전 ${app.versionName ?: "알 수 없음"}", fontSize = 12.sp)
-            }
-        }
-
-        Section("위험도")
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RiskBadge(app.riskLevel, app.riskScore)
-            Text("  ${app.riskLevel.label} · ${app.riskScore}점")
-        }
-        if (app.matchedRules.isEmpty()) {
-            Text("해당되는 의심 규칙이 없습니다.", fontSize = 13.sp)
-        } else {
-            app.matchedRules.forEach { r ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(r.description, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                    Text("+${r.points}", fontSize = 13.sp, color = RiskHigh)
+        val isSelf = app.packageName == context.packageName
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(inner)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppIcon(app.packageName, size = 56.dp)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(app.label, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        app.packageName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "버전 ${app.versionName ?: "알 수 없음"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-        }
 
-        Section("설치 정보")
-        InfoRow("최초 설치", formatTime(app.firstInstallTime))
-        InfoRow("마지막 업데이트", formatTime(app.lastUpdateTime))
-        InfoRow("설치한 앱", app.installerPackage ?: "없음")
-        InfoRow("설치 출처", app.installSource.label)
-
-        Section("상태")
-        val flags = buildList {
-            if (app.isActiveDeviceAdmin) add("기기관리자 활성")
-            if (app.hasEnabledAccessibility) add("접근성 활성")
-            if (app.hasEnabledNotificationListener) add("알림접근 활성")
-            if (!app.hasLauncherIcon && !app.isSystem) add("아이콘 숨김")
-        }
-        if (flags.isEmpty()) Text("특이 상태 없음", fontSize = 13.sp)
-        flags.forEach { Text("• $it", fontSize = 13.sp, color = RiskHigh) }
-
-        Section("권한 목록")
-        if (app.permissions.isEmpty()) Text("요청한 권한이 없습니다.", fontSize = 13.sp)
-        val grouped = app.permissions.groupBy { it.category }
-        PermCategory.values().forEach { cat ->
-            grouped[cat]?.let { items -> PermissionGroup(cat.label, items, cat in PermissionMap.DANGEROUS) }
-        }
-        grouped[null]?.let { PermissionGroup("기타", it, false) }
-
-        HorizontalDivider()
-        OutlinedButton(
-            onClick = { openAppSettings(context, app.packageName) },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("앱 정보 열기") }
-
-        when {
-            isSelf -> Unit
-            app.isSystem -> {
-                Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("증거 저장 후 삭제하기") }
-                Text("시스템 앱은 삭제할 수 없습니다. 비활성화는 앱 정보 화면에서 확인하세요.", fontSize = 12.sp)
+            SectionTitle("위험도")
+            RiskBadge(app.riskLevel, app.riskScore)
+            if (app.matchedRules.isEmpty()) {
+                Text("해당되는 의심 규칙이 없습니다.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                app.matchedRules.forEach { r ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(r.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        Text("+${r.points}", style = MaterialTheme.typography.bodyMedium, color = RiskHigh)
+                    }
+                }
             }
-            else -> Button(
-                onClick = { onStartRemoval(app.packageName) },
-                colors = ButtonDefaults.buttonColors(containerColor = RiskHigh),
+
+            when {
+                isSelf -> Unit
+                app.isSystem -> {
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("증거 저장 후 삭제하기") }
+                    Text(
+                        "시스템 앱은 삭제할 수 없습니다. 비활성화는 앱 정보 화면에서 확인하세요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                else -> Button(
+                    onClick = { onStartRemoval(app.packageName) },
+                    colors = ButtonDefaults.buttonColors(containerColor = RiskHigh),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("증거 저장 후 삭제하기") }
+            }
+            OutlinedButton(
+                onClick = { settingsOpenFailed = !openAppSettings(context, app.packageName) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("증거 저장 후 삭제하기") }
+            ) { Text("앱 정보 열기") }
+            if (settingsOpenFailed) {
+                ErrorText("앱 정보 화면을 열 수 없습니다. 설정 > 애플리케이션에서 '${app.label}'을 직접 찾아 여세요.")
+            }
+
+            SectionTitle("설치 정보")
+            InfoRow("최초 설치", formatTime(app.firstInstallTime))
+            InfoRow("마지막 업데이트", formatTime(app.lastUpdateTime))
+            InfoRow("설치한 앱", app.installerPackage ?: "없음")
+            InfoRow("설치 출처", app.installSource.label)
+
+            SectionTitle("상태")
+            val flags = buildList {
+                if (app.isActiveDeviceAdmin) add("기기관리자 활성")
+                if (app.hasEnabledAccessibility) add("접근성 활성")
+                if (app.hasEnabledNotificationListener) add("알림 접근 활성")
+                if (!app.hasLauncherIcon && !app.isSystem) add("아이콘 숨김")
+            }
+            if (flags.isEmpty()) StatusLine(Icons.Filled.Check, "특이 상태 없음", MaterialTheme.colorScheme.onSurface)
+            flags.forEach { StatusLine(Icons.Filled.Warning, it, RiskHigh) }
+
+            SectionTitle("권한 목록")
+            if (app.permissions.isEmpty()) Text("요청한 권한이 없습니다.", style = MaterialTheme.typography.bodyMedium)
+            val grouped = app.permissions.groupBy { it.category }
+            PermCategory.values().forEach { cat ->
+                grouped[cat]?.let { items -> PermissionGroup(cat.label, items, cat in PermissionMap.DANGEROUS) }
+            }
+            grouped[null]?.let { PermissionGroup("기타", it, false) }
         }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("뒤로") }
     }
 }
 
+/** 아이콘 + 글자. 색만으로 의미를 전하지 않도록 글자가 상태를 말한다. 아이콘은 장식(contentDescription = null). */
 @Composable
-private fun Section(title: String) {
-    Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+private fun StatusLine(icon: ImageVector, text: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = Modifier.padding(start = 8.dp))
+    }
 }
 
 @Composable
 private fun InfoRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth()) {
-        Text(label, fontSize = 13.sp, modifier = Modifier.weight(0.35f), color = MaterialTheme.colorScheme.outline)
-        Text(value, fontSize = 13.sp, modifier = Modifier.weight(0.65f))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(0.35f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(0.65f))
     }
 }
 
 @Composable
 private fun PermissionGroup(title: String, items: List<PermissionInfoItem>, dangerousCategory: Boolean) {
-    Column {
-        Text(title, fontSize = 14.sp, style = MaterialTheme.typography.labelLarge)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge)
         items.forEach { p ->
-            val mark = if (p.granted) "✔ 허용" else "✘ 미허용"
-            val color = when {
-                p.granted && dangerousCategory -> RiskHigh
-                p.granted -> MaterialTheme.colorScheme.onSurface
-                else -> Color.Gray
+            val name = p.name.removePrefix("android.permission.")
+            when {
+                p.granted && dangerousCategory ->
+                    StatusLine(Icons.Filled.Warning, "위험 권한 허용 · $name", RiskHigh)
+                p.granted ->
+                    StatusLine(Icons.Filled.Check, "허용 · $name", MaterialTheme.colorScheme.onSurface)
+                else ->
+                    StatusLine(Icons.Filled.Close, "미허용 · $name", MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("$mark  ${p.name.removePrefix("android.permission.")}", fontSize = 12.sp, color = color)
         }
     }
 }
 
-private fun openAppSettings(context: android.content.Context, pkg: String) {
+private fun openAppSettings(context: android.content.Context, pkg: String): Boolean {
     val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    try {
+    return try {
         context.startActivity(intent)
+        true
     } catch (e: ActivityNotFoundException) {
         Log.w(TAG, "app settings unavailable for $pkg", e)
+        false
     }
 }

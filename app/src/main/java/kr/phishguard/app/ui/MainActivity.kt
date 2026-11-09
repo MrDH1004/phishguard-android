@@ -4,12 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -41,12 +45,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+private data class Tab(val route: String, val label: String, val selectedIcon: ImageVector, val icon: ImageVector)
 
 private val tabs = listOf(
-    Tab("scan", "검사", Icons.Filled.Search),
-    Tab("monitor", "통신 감시", Icons.Filled.NetworkCheck),
-    Tab("settings", "설정", Icons.Filled.Settings),
+    Tab("scan", "검사", Icons.Filled.Search, Icons.Outlined.Search),
+    Tab("monitor", "통신 감시", Icons.Filled.NetworkCheck, Icons.Outlined.NetworkCheck),
+    Tab("settings", "설정", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 
 @Composable
@@ -59,8 +63,9 @@ fun AppRoot() {
         bottomBar = {
             NavigationBar {
                 tabs.forEach { t ->
+                    val selected = current == t.route
                     NavigationBarItem(
-                        selected = current == t.route,
+                        selected = selected,
                         onClick = {
                             nav.navigate(t.route) {
                                 popUpTo("scan") { saveState = true }
@@ -68,14 +73,14 @@ fun AppRoot() {
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
+                        icon = { Icon(if (selected) t.selectedIcon else t.icon, contentDescription = null) },
                         label = { Text(t.label) },
                     )
                 }
             }
         },
     ) { inner ->
-        Box(Modifier.fillMaxSize().padding(inner)) {
+        Box(Modifier.fillMaxSize().padding(inner).consumeWindowInsets(inner)) {
             NavHost(nav, startDestination = "scan") {
                 composable("scan") { ScanScreen(onOpenApp = { nav.navigate("app/$it") }) }
                 composable("monitor") { MonitorScreen(onOpenApp = { nav.navigate("app/$it") }) }
@@ -96,7 +101,11 @@ fun AppRoot() {
                     arguments = listOf(navArgument("pkg") { type = NavType.StringType }),
                 ) { e ->
                     val pkg = e.arguments?.getString("pkg").orEmpty()
-                    RemovalScreen(packageName = pkg, onDone = { nav.popBackStack("scan", inclusive = false) })
+                    RemovalScreen(
+                        packageName = pkg,
+                        onDone = { nav.popBackStack("scan", inclusive = false) },
+                        onBack = { nav.popBackStack() },
+                    )
                 }
             }
         }

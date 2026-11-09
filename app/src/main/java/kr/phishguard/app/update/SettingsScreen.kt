@@ -1,11 +1,8 @@
 package kr.phishguard.app.update
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -14,7 +11,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,22 +23,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kr.phishguard.app.BuildConfig
+import kr.phishguard.app.ui.EmergencyCallButtons
+import kr.phishguard.app.ui.ErrorText
+import kr.phishguard.app.ui.ScreenTitle
+import kr.phishguard.app.ui.SectionTitle
 
 /** 프로세스당 한 번만 자동 확인. */
 private object UpdateSession {
     @Volatile var checked = false
-}
-
-private fun dial(context: Context, number: String) {
-    context.startActivity(
-        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    )
 }
 
 /** 다운로드/검증/설치 진행 UI 상태. */
@@ -90,10 +86,16 @@ private fun UpdateDialog(info: UpdateInfo, flow: UpdateFlow, onDismiss: () -> Un
         title = { Text("새 버전 v${info.version}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(info.notes.ifBlank { "변경 내용이 없습니다." })
+                Text(info.notes.ifBlank { "변경 내용 안내가 없습니다." })
                 if (flow.busy) LinearProgressIndicator(progress = { flow.progress }, modifier = Modifier.fillMaxWidth())
-                if (flow.status.isNotEmpty()) Text(flow.status, style = MaterialTheme.typography.bodySmall)
-                flow.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (flow.status.isNotEmpty()) {
+                    Text(
+                        flow.status,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+                flow.error?.let { ErrorText(it) }
             }
         },
         confirmButton = {
@@ -121,7 +123,6 @@ fun UpdatePromptHost() {
 
 @Composable
 fun SettingsScreen() {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
     var resultText by remember { mutableStateOf("") }
@@ -132,45 +133,44 @@ fun SettingsScreen() {
         Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("설정", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        ScreenTitle("설정")
 
-        Text("현재 버전 ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleMedium)
+        SectionTitle("업데이트")
+        Text("현재 버전 ${BuildConfig.VERSION_NAME}")
         Button(
             enabled = !checking,
             onClick = {
                 scope.launch {
                     checking = true
-                    resultText = "확인 중..."
+                    resultText = "확인 중…"
                     when (val r = withContext(Dispatchers.IO) { UpdateManager.check() }) {
                         is CheckResult.Available -> {
                             available = r.info
                             resultText = "새 버전 v${r.info.version}이 있습니다."
                         }
                         CheckResult.UpToDate -> resultText = "최신 버전입니다."
-                        CheckResult.Failed -> resultText = "업데이트 확인에 실패했습니다. 인터넷 연결을 확인하세요."
+                        CheckResult.Failed -> resultText = "업데이트를 확인하지 못했습니다. 지금 버전은 그대로 쓸 수 있습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요."
                     }
                     checking = false
                 }
             },
         ) { Text("업데이트 확인") }
-        if (resultText.isNotEmpty()) Text(resultText)
+        if (resultText.isNotEmpty()) {
+            Text(resultText, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        }
         available?.let { UpdateDialog(it, flow) { available = null } }
 
-        Text("앱 소개", style = MaterialTheme.typography.titleMedium)
+        SectionTitle("앱 소개")
         Text("피싱앱 검사기는 휴대폰에 설치된 앱의 권한과 설치 출처를 규칙으로 점검해 의심 앱을 찾고, 통신을 감시하며, 증거를 보존한 뒤 안전하게 삭제하도록 돕습니다.")
 
-        Text("개인정보 및 네트워크 안내", style = MaterialTheme.typography.titleMedium)
+        SectionTitle("개인정보 및 네트워크 안내")
         Text("앱 검사는 인터넷 없이 기기 안에서만 동작합니다. 인터넷은 새 버전을 확인하고 내려받을 때만 사용합니다.")
         Text("개인정보나 검사 결과는 어디로도 전송되지 않습니다.")
 
-        Text("긴급 신고·상담", style = MaterialTheme.typography.titleMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { dial(context, "118") }) { Text("KISA 118") }
-            OutlinedButton(onClick = { dial(context, "112") }) { Text("경찰 112") }
-            OutlinedButton(onClick = { dial(context, "1332") }) { Text("금감원 1332") }
-        }
+        SectionTitle("긴급 신고·상담")
+        EmergencyCallButtons()
 
-        Text("오픈소스·데이터 출처", style = MaterialTheme.typography.titleMedium)
+        SectionTitle("오픈소스·데이터 출처")
         Text("AndroidX, Jetpack Compose, Kotlin Coroutines: Apache License 2.0")
     }
 }

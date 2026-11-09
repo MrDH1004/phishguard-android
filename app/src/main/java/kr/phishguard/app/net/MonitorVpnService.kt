@@ -89,7 +89,7 @@ class MonitorVpnService : VpnService() {
             null
         }
         if (pfd == null) {
-            notifyUser("인터넷 차단을 켜지 못했어요", "앱을 열어 다시 시도하세요")
+            notifyUser("인터넷 차단을 켜지 못했습니다", "앱을 열어 '차단 켜기'를 다시 눌러 주세요.")
             shutdown()
             return
         }
@@ -146,7 +146,7 @@ class MonitorVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        notifyUser("인터넷 차단이 해제됐어요", "다른 VPN 앱이 켜져서 차단이 꺼졌어요. 앱에서 다시 켜세요.")
+        notifyUser("인터넷 차단이 해제되었습니다", "다른 VPN 앱이 켜져서 차단이 꺼졌습니다. 앱을 열어 '차단 켜기'를 다시 눌러 주세요.")
         shutdown()
         super.onRevoke()
     }
@@ -172,7 +172,7 @@ class MonitorVpnService : VpnService() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentTitle("의심 앱 인터넷 차단 중")
-            .setContentText("${count}개 앱의 인터넷을 막고 있어요")
+            .setContentText("${count}개 앱의 인터넷을 막고 있습니다")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

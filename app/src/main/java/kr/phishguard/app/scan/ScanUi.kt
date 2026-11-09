@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -61,7 +60,7 @@ fun AppIcon(packageName: String, size: Dp = 40.dp) {
             Icons.Filled.Android,
             contentDescription = null,
             modifier = Modifier.size(size),
-            tint = MaterialTheme.colorScheme.outline,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -75,13 +74,13 @@ private fun loadIcon(context: Context, packageName: String): ImageBitmap? = try 
 
 @Composable
 fun RiskBadge(level: RiskLevel, score: Int? = null) {
-    val text = if (score != null) "${level.label} $score" else level.label
+    val text = if (score != null) "위험 ${level.label} · ${score}점" else "위험 ${level.label}"
     Box(
         modifier = Modifier
             .background(riskColor(level), RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, color = Color.White, fontSize = 12.sp)
+        Text(text, color = Color.White, style = MaterialTheme.typography.labelMedium)
     }
 }
