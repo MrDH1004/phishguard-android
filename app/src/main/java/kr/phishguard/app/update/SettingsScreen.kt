@@ -239,9 +239,9 @@ fun SettingsScreen() {
         }
         available?.let { UpdateDialog(it, flow) { available = null } }
 
-        SectionTitle("아는 앱")
+        SectionTitle("안전앱")
         if (trusted.isEmpty()) {
-            Text("아는 앱으로 표시한 앱이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("안전앱으로 표시한 앱이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         trusted.map { pkg -> pkg to (apps.firstOrNull { it.packageName == pkg }?.label ?: pkg) }
             .sortedBy { it.second }
@@ -257,7 +257,7 @@ fun SettingsScreen() {
                     }
                     TextButton(
                         onClick = { TrustList.set(context, pkg, false) },
-                        modifier = Modifier.semantics { contentDescription = "$label 아는 앱 해제" },
+                        modifier = Modifier.semantics { contentDescription = "$label 안전앱 해제" },
                     ) { Text("해제") }
                 }
             }

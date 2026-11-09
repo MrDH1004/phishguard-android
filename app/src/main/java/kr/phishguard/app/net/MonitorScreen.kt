@@ -111,7 +111,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                         1000 -> "안드로이드 시스템"
                         else -> "uid ${u.uid}"
                     }
-                    // 아는 앱은 위험 표시·정렬 우선순위 없이 보인다.
+                    // 안전앱은 위험 표시·정렬 우선순위 없이 보인다.
                     val risk = if (app != null && app.packageName in trusted) null else app?.riskLevel
                     UsageRow(u.uid, pkg, label, risk, u, scanned = app != null)
                 }

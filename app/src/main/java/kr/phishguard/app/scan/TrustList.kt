@@ -4,7 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** 사용자가 '아는 앱'으로 표시한 패키지 목록 (SharedPreferences 영속). 검사 결과에서 제외한다. */
+/** 사용자가 '안전앱'으로 표시한 패키지 목록 (SharedPreferences 영속). 검사 결과에서 제외한다. */
 object TrustList {
     private const val PREF = "trustlist"
     private const val KEY = "trusted_packages"

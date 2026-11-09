@@ -95,7 +95,7 @@ object ReportBuilder {
         sb.append("<h2>의심 앱 (${sus.size}개)</h2>\n").append(appTable(sus))
 
         val tr = trustedListed(input)
-        sb.append("<h2>사용자가 '아는 앱'으로 표시한 앱 (${tr.size}개)</h2>\n").append(appTable(tr))
+        sb.append("<h2>사용자가 '안전앱'으로 표시한 앱 (${tr.size}개)</h2>\n").append(appTable(tr))
 
         val ev = input.events.take(MAX_EVENTS)
         sb.append("<h2>설치·삭제 기록 (최근 ${ev.size}건)</h2>\n")

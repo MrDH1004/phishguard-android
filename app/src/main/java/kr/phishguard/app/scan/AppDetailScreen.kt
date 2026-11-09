@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,7 +31,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -274,7 +272,7 @@ private fun openDefaultAppsSettings(context: android.content.Context): Boolean {
     }
 }
 
-/** 아는 앱 표시/해제. 위험 높음·중간이면 한 번 더 확인한다. */
+/** 안전앱 표시/해제. 위험 높음·중간이면 한 번 더 확인한다. */
 @Composable
 private fun TrustSection(app: AppInfo) {
     val context = LocalContext.current
@@ -294,7 +292,7 @@ private fun TrustSection(app: AppInfo) {
                 modifier = Modifier.size(18.dp),
             )
             Text(
-                "아는 앱으로 표시됨 · 검사 결과에서 제외됩니다",
+                "안전앱으로 표시됨 · 검사 결과에서 제외됩니다",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 8.dp),
             )
@@ -302,35 +300,24 @@ private fun TrustSection(app: AppInfo) {
         OutlinedButton(
             onClick = { TrustList.set(context, app.packageName, false) },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("아는 앱 표시 해제") }
+        ) { Text("안전앱 표시 해제") }
     } else {
         OutlinedButton(
             onClick = {
                 if (app.riskLevel == RiskLevel.LOW) TrustList.set(context, app.packageName, true) else confirming = true
             },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("아는 앱으로 표시 (검사 결과에서 제외)") }
+        ) { Text("안전앱으로 표시 (검사 결과에서 제외)") }
     }
 
     if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text("정말 아는 앱입니까?") },
-            text = {
-                Text(
-                    "이 앱은 위험 ${app.riskLevel.label} 판정입니다. 사기범은 '검찰청', '은행', 유명 앱 이름을 흉내 냅니다. " +
-                        "직접 설치했고 출처를 아는 앱일 때만 제외하세요.",
-                )
+        TrustConfirmDialog(
+            app = app,
+            onConfirm = {
+                TrustList.set(context, app.packageName, true)
+                confirming = false
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    TrustList.set(context, app.packageName, true)
-                    confirming = false
-                }) { Text("아는 앱으로 표시") }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirming = false }) { Text("취소") }
-            },
+            onDismiss = { confirming = false },
         )
     }
 }

@@ -2,6 +2,7 @@ package kr.phishguard.app.scan
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -25,6 +26,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -42,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +77,21 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
     val trusted by TrustList.trusted.collectAsStateWithLifecycle()
     var recentDays by rememberSaveable { mutableIntStateOf(7) }
     val defaults by ScanRepository.defaults.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var confirmApp by remember { mutableStateOf<AppInfo?>(null) }
+
+    fun markTrusted(app: AppInfo) {
+        TrustList.set(context, app.packageName, true)
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = "${app.label}을(를) 안전앱으로 표시했습니다",
+                actionLabel = "되돌리기",
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) TrustList.set(context, app.packageName, false)
+        }
+    }
 
     fun startScan() {
         if (scanning) return
@@ -110,7 +131,7 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
         }
     }
     val hiddenTrusted = if (includeTrusted) 0 else presentTrusted.count(matchesFilter)
-    val trustedNote = if (hiddenTrusted > 0) " (아는 앱 ${hiddenTrusted}개 제외)" else ""
+    val trustedNote = if (hiddenTrusted > 0) " (안전앱 ${hiddenTrusted}개 제외)" else ""
     val shown = base
         .filter(matchesFilter)
         .sortedWith(
@@ -126,11 +147,12 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
         else -> "표시할 앱이 없습니다.$trustedNote '시스템 앱 포함'을 켜면 시스템 앱도 볼 수 있습니다."
     }
     val rowPadding = Modifier.padding(horizontal = 16.dp)
-    // 아는 앱으로 표시하지 않은 앱 중 기본 전화/문자 앱을 차지한 의심 앱
+    // 안전앱으로 표시하지 않은 앱 중 기본 전화/문자 앱을 차지한 의심 앱
     val roleHijackers = apps.filter {
         it.packageName !in trusted && it.matchedRules.any { r -> r.id == RiskRules.ID_DEFAULT_ROLE_HIJACK }
     }
 
+    Box(Modifier.fillMaxSize()) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 8.dp)) {
         items(roleHijackers, key = { "hijack_${it.packageName}" }) { app ->
             RoleHijackBanner(app, onClick = { onOpenApp(app.packageName) }, modifier = rowPadding.padding(bottom = 8.dp))
@@ -176,7 +198,7 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
                 SummaryCount("위험 낮음", counts.low, RiskLevel.LOW)
             }
             Text(
-                "아는 앱은 앱을 눌러 '아는 앱으로 표시'하면 결과에서 빠집니다.",
+                "안전앱은 앱을 눌러 '안전앱으로 표시'하면 결과에서 빠집니다.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = rowPadding.padding(bottom = 8.dp),
@@ -223,7 +245,7 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("아는 앱 포함 (${presentTrusted.size}개)", modifier = Modifier.weight(1f))
+                Text("안전앱 포함 (${presentTrusted.size}개)", modifier = Modifier.weight(1f))
                 Switch(checked = includeTrusted, onCheckedChange = null)
             }
             HorizontalDivider()
@@ -234,9 +256,32 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
             }
         }
         items(shown, key = { it.packageName }) { app ->
-            AppRow(app, isTrusted = app.packageName in trusted, onClick = { onOpenApp(app.packageName) })
+            AppRow(
+                app,
+                isTrusted = app.packageName in trusted,
+                showTrustToggle = app.packageName != context.packageName,
+                onTrustChange = { on ->
+                    if (!on) TrustList.set(context, app.packageName, false)
+                    else if (app.riskLevel == RiskLevel.LOW) markTrusted(app)
+                    else confirmApp = app
+                },
+                onClick = { onOpenApp(app.packageName) },
+            )
             HorizontalDivider(rowPadding)
         }
+    }
+    SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
+    }
+
+    confirmApp?.let { target ->
+        TrustConfirmDialog(
+            app = target,
+            onConfirm = {
+                markTrusted(target)
+                confirmApp = null
+            },
+            onDismiss = { confirmApp = null },
+        )
     }
 }
 
@@ -281,7 +326,13 @@ private fun SummaryCount(label: String, count: Int, level: RiskLevel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppRow(app: AppInfo, isTrusted: Boolean, onClick: () -> Unit) {
+private fun AppRow(
+    app: AppInfo,
+    isTrusted: Boolean,
+    showTrustToggle: Boolean,
+    onTrustChange: (Boolean) -> Unit,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -297,7 +348,7 @@ private fun AppRow(app: AppInfo, isTrusted: Boolean, onClick: () -> Unit) {
                 "${formatTime(app.firstInstallTime)} · ${app.installSource.label}",
                 style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            val flags = if (isTrusted) listOf("아는 앱") + flagLabels(app) else flagLabels(app)
+            val flags = if (isTrusted) listOf("안전앱") + flagLabels(app) else flagLabels(app)
             if (flags.isNotEmpty()) {
                 FlowRow(
                     Modifier.padding(top = 4.dp),
@@ -313,6 +364,23 @@ private fun AppRow(app: AppInfo, isTrusted: Boolean, onClick: () -> Unit) {
                             )
                         }
                     }
+                }
+            }
+            if (showTrustToggle) {
+                Row(
+                    Modifier
+                        .padding(top = 4.dp)
+                        .semantics { contentDescription = "${app.label} 안전앱" }
+                        .toggleable(value = isTrusted, role = Role.Switch, onValueChange = onTrustChange),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "안전앱",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
+                    Switch(checked = isTrusted, onCheckedChange = null)
                 }
             }
         }
