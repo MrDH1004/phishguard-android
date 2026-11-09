@@ -129,6 +129,8 @@ private fun PageEmergency() {
     Body("3. 악성 앱 상담은 KISA 118에서 받을 수 있습니다.")
     Body("비행기 모드를 끈 뒤 이 앱으로 검사하세요. 아래 버튼을 누르면 전화 앱이 열립니다.")
     EmergencyCallButtons()
+    PageTitle("악성 앱 설치 막기")
+    AutoBlockerGuide()
 }
 
 @Composable

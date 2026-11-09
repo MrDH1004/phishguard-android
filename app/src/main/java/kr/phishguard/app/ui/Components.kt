@@ -95,3 +95,46 @@ fun EmergencyCallButtons(modifier: Modifier = Modifier) {
         if (dialFailed) ErrorText("전화 앱을 열 수 없습니다. 휴대폰에서 직접 번호를 눌러 전화하세요.")
     }
 }
+
+/**
+ * 삼성 '자동 차단(Auto Blocker)' 켜기 안내 + 설정 바로가기.
+ * 자동 차단 화면을 직접 여는 공개 인텐트는 확인되지 않아 보안 설정 화면을 연다.
+ * 출처: https://www.samsung.com/uk/support/mobile-devices/protect-your-galaxy-device-with-the-new-auto-blocker-feature/
+ */
+@Composable
+fun AutoBlockerGuide(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var openFailed by remember { mutableStateOf(false) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "갤럭시 폰은 '자동 차단'을 켜면 Play 스토어·갤럭시 스토어가 아닌 곳에서 받은 앱(문자 링크로 받은 APK 등) 설치가 막힙니다. 보이스피싱 악성 앱을 막는 가장 확실한 방법입니다.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "켜는 법: 설정 → 보안 및 개인정보 보호 → 자동 차단 → 켜기",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            "기종·버전에 따라 메뉴 이름이 다를 수 있습니다. 누군가 전화로 '자동 차단을 끄라'고 하면 사기입니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        OutlinedButton(onClick = {
+            openFailed = false
+            val intents = listOf(
+                Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS),
+                Intent(android.provider.Settings.ACTION_SETTINGS),
+            )
+            openFailed = intents.none { i ->
+                try {
+                    context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+                } catch (e: ActivityNotFoundException) {
+                    Log.w("PG-AutoBlocker", "settings open failed: ${i.action}", e); false
+                }
+            }
+        }) { Text("보안 설정 열기") }
+        if (openFailed) {
+            ErrorText("설정 화면을 열 수 없습니다. 휴대폰의 '설정' 앱을 직접 열어 '보안 및 개인정보 보호'를 찾아 주세요.")
+        }
+    }
+}

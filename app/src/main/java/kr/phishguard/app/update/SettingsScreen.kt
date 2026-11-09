@@ -61,6 +61,7 @@ import kr.phishguard.app.BuildConfig
 import kr.phishguard.app.scan.ScanRepository
 import kr.phishguard.app.scan.TrustList
 import kr.phishguard.app.ui.EmergencyCallButtons
+import kr.phishguard.app.ui.AutoBlockerGuide
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.ScreenTitle
 import kr.phishguard.app.ui.SectionTitle
@@ -238,6 +239,9 @@ fun SettingsScreen() {
             Text(resultText, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
         available?.let { UpdateDialog(it, flow) { available = null } }
+
+        SectionTitle("악성 앱 설치 막기 (삼성 자동 차단)")
+        AutoBlockerGuide()
 
         SectionTitle("안전앱")
         if (trusted.isEmpty()) {
