@@ -11,3 +11,4 @@ captures/
 *.jks
 !signing/phishguard-public.jks
 keystore.properties
+prompt-*.md
