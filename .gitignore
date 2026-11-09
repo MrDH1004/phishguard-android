@@ -4,10 +4,10 @@ build/
 local.properties
 .idea/
 *.iml
-*.jks
-*.keystore
-keystore.properties
 .omc/
 captures/
 .externalNativeBuild
 .cxx
+*.jks
+!signing/phishguard-public.jks
+keystore.properties

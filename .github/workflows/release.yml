@@ -35,22 +35,8 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Decode keystore
-        env:
-          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
-        run: echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-
-      - name: Test and build signed release APK
-        env:
-          SIGNING_STORE_FILE: ${{ runner.temp }}/release.jks
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+      - name: Test and build release APK (저장소의 고정 키로 서명)
         run: ./gradlew :app:testDebugUnitTest :app:assembleRelease --console=plain
-
-      - name: Remove keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/release.jks"
 
       - name: Rename APK and write SHA-256
         run: |

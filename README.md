@@ -29,9 +29,10 @@
 - `:app` 본 앱, `:testmalware` 테스트용 가짜 의심앱("검찰청 사건조회" — 기기관리자·접근성·SMS 권한, 아이콘 숨기기)
 
 ## 배포 (자동)
-`v*` 태그를 push하면 GitHub Actions가 서명된 APK와 `.sha256`을 Release에 올립니다.
+`v*` 태그를 push하면 GitHub Actions가 APK와 `.sha256`을 Release에 올리고, 설치된 앱이 실행 시 새 버전을 감지해 업데이트를 안내합니다.
 ```bash
 git tag v1.0.1 && git push origin v1.0.1
 ```
-필요한 저장소 Secrets: `SIGNING_KEYSTORE_BASE64`, `SIGNING_STORE_PASSWORD`, `SIGNING_KEY_ALIAS`, `SIGNING_KEY_PASSWORD`.
-서명 키를 잃어버리면 기존 설치본에 업데이트를 할 수 없으니 반드시 백업하세요.
+## 서명
+개인용이라 서명 키(`signing/phishguard-public.jks`, 비밀번호 `phishguard`)를 저장소에 포함했습니다. 어디서 빌드해도 같은 서명이라 업데이트가 이어지고, 따로 관리할 Secrets가 없습니다.
+키가 공개돼 있으므로 이 저장소 Releases가 아닌 곳에서 받은 APK는 설치하지 마세요.

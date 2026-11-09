@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -16,13 +14,6 @@ val versionCodeInt: Int = versionNameStr.split(".").let { p ->
     major * 1_000_000 + minor * 1_000 + patch
 }
 
-// 서명: 환경변수(CI) 또는 keystore.properties(로컬)
-val keystoreProps = Properties().apply {
-    val f = rootProject.file("keystore.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}
-fun signingValue(env: String, prop: String): String? = System.getenv(env) ?: keystoreProps.getProperty(prop)
-
 android {
     namespace = "kr.phishguard.app"
     compileSdk = 35
@@ -36,23 +27,23 @@ android {
         buildConfigField("String", "GITHUB_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "MrDH1004/phishguard-android"}\"")
     }
 
+    // 개인용: 저장소에 포함된 고정 키로 debug/release 모두 서명 → 어디서 빌드해도 같은 서명이라 자동 업데이트가 됨
     signingConfigs {
-        create("release") {
-            val storePath = signingValue("SIGNING_STORE_FILE", "storeFile")
-            if (storePath != null) {
-                storeFile = file(storePath)
-                storePassword = signingValue("SIGNING_STORE_PASSWORD", "storePassword")
-                keyAlias = signingValue("SIGNING_KEY_ALIAS", "keyAlias")
-                keyPassword = signingValue("SIGNING_KEY_PASSWORD", "keyPassword")
-            }
+        create("personal") {
+            storeFile = rootProject.file("signing/phishguard-public.jks")
+            storePassword = "phishguard"
+            keyAlias = "phishguard"
+            keyPassword = "phishguard"
         }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("personal")
+        }
         release {
             isMinifyEnabled = false
-            val rel = signingConfigs.getByName("release")
-            if (rel.storeFile != null) signingConfig = rel
+            signingConfig = signingConfigs.getByName("personal")
         }
     }
 
