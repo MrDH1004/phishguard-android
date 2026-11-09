@@ -1,0 +1,104 @@
+package kr.phishguard.app.ui
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import kr.phishguard.app.net.BlockList
+import kr.phishguard.app.net.MonitorScreen
+import kr.phishguard.app.remove.RemovalScreen
+import kr.phishguard.app.scan.AppDetailScreen
+import kr.phishguard.app.scan.ScanScreen
+import kr.phishguard.app.update.SettingsScreen
+import kr.phishguard.app.update.UpdatePromptHost
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        BlockList.load(applicationContext)
+        setContent { PhishGuardTheme { AppRoot() } }
+    }
+}
+
+private data class Tab(val route: String, val label: String, val icon: ImageVector)
+
+private val tabs = listOf(
+    Tab("scan", "검사", Icons.Filled.Search),
+    Tab("monitor", "통신 감시", Icons.Filled.NetworkCheck),
+    Tab("settings", "설정", Icons.Filled.Settings),
+)
+
+@Composable
+fun AppRoot() {
+    val nav = rememberNavController()
+    val backStack by nav.currentBackStackEntryAsState()
+    val current = backStack?.destination?.route
+    UpdatePromptHost()
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                tabs.forEach { t ->
+                    NavigationBarItem(
+                        selected = current == t.route,
+                        onClick = {
+                            nav.navigate(t.route) {
+                                popUpTo("scan") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(t.icon, contentDescription = t.label) },
+                        label = { Text(t.label) },
+                    )
+                }
+            }
+        },
+    ) { inner ->
+        Box(Modifier.fillMaxSize().padding(inner)) {
+            NavHost(nav, startDestination = "scan") {
+                composable("scan") { ScanScreen(onOpenApp = { nav.navigate("app/$it") }) }
+                composable("monitor") { MonitorScreen(onOpenApp = { nav.navigate("app/$it") }) }
+                composable("settings") { SettingsScreen() }
+                composable(
+                    "app/{pkg}",
+                    arguments = listOf(navArgument("pkg") { type = NavType.StringType }),
+                ) { e ->
+                    val pkg = e.arguments?.getString("pkg").orEmpty()
+                    AppDetailScreen(
+                        packageName = pkg,
+                        onStartRemoval = { nav.navigate("remove/$it") },
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+                composable(
+                    "remove/{pkg}",
+                    arguments = listOf(navArgument("pkg") { type = NavType.StringType }),
+                ) { e ->
+                    val pkg = e.arguments?.getString("pkg").orEmpty()
+                    RemovalScreen(packageName = pkg, onDone = { nav.popBackStack("scan", inclusive = false) })
+                }
+            }
+        }
+    }
+}
