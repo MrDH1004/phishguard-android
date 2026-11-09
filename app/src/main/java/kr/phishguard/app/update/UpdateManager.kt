@@ -94,23 +94,31 @@ object UpdateManager {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val apk = File(dir, "phishguard-${info.version}.apk")
+        var stage = "다운로드"
         try {
             onStatus("다운로드 중…")
             download(info.apkUrl, apk, onProgress)
+            stage = "검증 정보 받기"
             onStatus("무결성 확인 중…")
             val expected = UpdateLogic.parseSha256(fetchText(info.sha256Url))
                 ?: return fail(apk, "검증 정보를 읽지 못해 설치하지 않았습니다. 지금 버전은 그대로 안전하게 쓸 수 있습니다. 잠시 후 '업데이트'를 다시 눌러 주세요.")
             if (!UpdateLogic.hashMatches(expected, sha256Hex(apk))) {
                 return fail(apk, "받은 파일이 손상되었거나 변조되어 설치하지 않았습니다. 지금 버전은 그대로 안전하게 쓸 수 있습니다. 잠시 후 '업데이트'를 다시 눌러 주세요.")
             }
+            stage = "서명 확인"
             onStatus("서명 확인 중…")
             val err = verifyPackage(context, apk)
             if (err != null) return fail(apk, err)
             onStatus("검증 완료")
             return DownloadResult.Ready(apk)
         } catch (e: Exception) {
-            Log.w(TAG, "download failed", e)
-            return fail(apk, "새 버전을 내려받지 못했습니다. 지금 버전은 그대로 안전하게 쓸 수 있습니다. 인터넷 연결을 확인한 뒤 '업데이트'를 다시 눌러 주세요.")
+            Log.w(TAG, "download failed at $stage", e)
+            val cause = "${e.javaClass.simpleName}: ${e.message?.take(120) ?: "-"}"
+            return fail(
+                apk,
+                "새 버전을 내려받지 못했습니다($stage 단계). 지금 버전은 그대로 안전하게 쓸 수 있습니다. " +
+                    "인터넷 연결을 확인한 뒤 다시 누르거나, '브라우저로 받기'로 직접 받아 설치하세요. (원인: $cause)",
+            )
         }
     }
 
@@ -128,12 +136,19 @@ object UpdateManager {
                 dest.outputStream().use { out ->
                     val buf = ByteArray(32 * 1024)
                     var done = 0L
+                    var lastPct = -1
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break
                         out.write(buf, 0, n)
                         done += n
-                        if (total > 0) onProgress(done.toFloat() / total)
+                        if (total > 0) {
+                            val pct = (done * 100 / total).toInt()
+                            if (pct != lastPct) {
+                                lastPct = pct
+                                onProgress(pct / 100f)
+                            }
+                        }
                     }
                 }
             }

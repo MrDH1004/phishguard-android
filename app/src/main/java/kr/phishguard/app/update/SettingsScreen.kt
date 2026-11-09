@@ -82,11 +82,13 @@ private class UpdateFlow {
         busy = true
         error = null
         progress = 0f
+        // 진행률·상태는 Compose 상태라 메인 스레드에서만 갱신한다
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
         val result = withContext(Dispatchers.IO) {
             UpdateManager.downloadAndVerify(
                 context, info,
-                onProgress = { progress = it },
-                onStatus = { status = it },
+                onProgress = { p -> main.post { progress = p } },
+                onStatus = { s -> main.post { status = s } },
             )
         }
         busy = false
@@ -125,7 +127,21 @@ private fun UpdateDialog(info: UpdateInfo, flow: UpdateFlow, onDismiss: () -> Un
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
-                flow.error?.let { ErrorText(it) }
+                flow.error?.let {
+                    ErrorText(it)
+                    TextButton(onClick = {
+                        try {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/${kr.phishguard.app.BuildConfig.GITHUB_REPO}/releases/latest"),
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        } catch (e: android.content.ActivityNotFoundException) {
+                            android.util.Log.w("PG-Update", "browser open failed", e)
+                        }
+                    }) { Text("브라우저로 받기") }
+                }
             }
         },
         confirmButton = {
