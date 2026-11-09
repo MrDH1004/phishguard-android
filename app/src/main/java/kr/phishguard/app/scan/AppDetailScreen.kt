@@ -18,7 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kr.phishguard.app.remove.EvidenceSaveSection
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskHigh
 import kr.phishguard.app.ui.SectionTitle
@@ -149,6 +153,10 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("증거 저장 후 삭제하기") }
             }
+            if (!isSelf) {
+                EvidenceSaveSection(app)
+                TrustSection(app)
+            }
             OutlinedButton(
                 onClick = { settingsOpenFailed = !openAppSettings(context, app.packageName) },
                 modifier = Modifier.fillMaxWidth(),
@@ -181,6 +189,67 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
             }
             grouped[null]?.let { PermissionGroup("기타", it, false) }
         }
+    }
+}
+
+/** 아는 앱 표시/해제. 위험 높음·중간이면 한 번 더 확인한다. */
+@Composable
+private fun TrustSection(app: AppInfo) {
+    val context = LocalContext.current
+    val trusted by TrustList.trusted.collectAsStateWithLifecycle()
+    val isTrusted = app.packageName in trusted
+    var confirming by remember { mutableStateOf(false) }
+
+    if (isTrusted) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        ) {
+            Icon(
+                Icons.Filled.Verified,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                "아는 앱으로 표시됨 · 검사 결과에서 제외됩니다",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
+        OutlinedButton(
+            onClick = { TrustList.set(context, app.packageName, false) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("아는 앱 표시 해제") }
+    } else {
+        OutlinedButton(
+            onClick = {
+                if (app.riskLevel == RiskLevel.LOW) TrustList.set(context, app.packageName, true) else confirming = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("아는 앱으로 표시 (검사 결과에서 제외)") }
+    }
+
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("정말 아는 앱입니까?") },
+            text = {
+                Text(
+                    "이 앱은 위험 ${app.riskLevel.label} 판정입니다. 사기범은 '검찰청', '은행', 유명 앱 이름을 흉내 냅니다. " +
+                        "직접 설치했고 출처를 아는 앱일 때만 제외하세요.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    TrustList.set(context, app.packageName, true)
+                    confirming = false
+                }) { Text("아는 앱으로 표시") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text("취소") }
+            },
+        )
     }
 }
 

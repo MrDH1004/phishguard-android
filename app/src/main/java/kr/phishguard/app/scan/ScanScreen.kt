@@ -61,6 +61,8 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
     var total by remember { mutableIntStateOf(0) }
     var filter by rememberSaveable { mutableStateOf(ScanFilter.ALL) }
     var includeSystem by rememberSaveable { mutableStateOf(false) }
+    var includeTrusted by rememberSaveable { mutableStateOf(false) }
+    val trusted by TrustList.trusted.collectAsStateWithLifecycle()
     var recentDays by rememberSaveable { mutableIntStateOf(7) }
 
     fun startScan() {
@@ -87,21 +89,23 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
     }
 
     val now = System.currentTimeMillis()
-    val base = if (includeSystem) apps else apps.filter { !it.isSystem }
-    val high = base.count { it.riskLevel == RiskLevel.HIGH }
-    val medium = base.count { it.riskLevel == RiskLevel.MEDIUM }
-    val low = base.count { it.riskLevel == RiskLevel.LOW }
-    val shown = base
-        .filter {
-            when (filter) {
-                ScanFilter.ALL -> true
-                ScanFilter.SUSPICIOUS -> it.riskLevel != RiskLevel.LOW
-                ScanFilter.RECENT ->
-                    now - it.firstInstallTime <= recentDays * RiskRules.DAY_MS ||
-                        now - it.lastUpdateTime <= recentDays * RiskRules.DAY_MS
-                ScanFilter.HIDDEN_ICON -> !it.hasLauncherIcon
-            }
+    val base = TrustFilter.visibleApps(apps, trusted, includeTrusted, includeSystem)
+    val counts = TrustFilter.summaryCounts(apps, trusted, includeSystem)
+    val presentTrusted = TrustFilter.presentTrusted(apps, trusted, includeSystem)
+    val matchesFilter: (AppInfo) -> Boolean = {
+        when (filter) {
+            ScanFilter.ALL -> true
+            ScanFilter.SUSPICIOUS -> it.riskLevel != RiskLevel.LOW
+            ScanFilter.RECENT ->
+                now - it.firstInstallTime <= recentDays * RiskRules.DAY_MS ||
+                    now - it.lastUpdateTime <= recentDays * RiskRules.DAY_MS
+            ScanFilter.HIDDEN_ICON -> !it.hasLauncherIcon
         }
+    }
+    val hiddenTrusted = if (includeTrusted) 0 else presentTrusted.count(matchesFilter)
+    val trustedNote = if (hiddenTrusted > 0) " (아는 앱 ${hiddenTrusted}개 제외)" else ""
+    val shown = base
+        .filter(matchesFilter)
         .sortedWith(
             compareByDescending<AppInfo> { it.riskScore }
                 .thenByDescending { it.firstInstallTime },
@@ -109,10 +113,10 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
 
     val emptyMessage = when {
         apps.isEmpty() -> "아직 검사하지 않았습니다. 위의 '검사 시작'을 눌러 설치된 앱을 확인하세요."
-        filter == ScanFilter.SUSPICIOUS -> "위험도 중간 이상인 앱이 없습니다."
-        filter == ScanFilter.RECENT -> "최근 ${recentDays}일 안에 설치하거나 업데이트한 앱이 없습니다."
-        filter == ScanFilter.HIDDEN_ICON -> "아이콘을 숨긴 앱이 없습니다."
-        else -> "표시할 앱이 없습니다. '시스템 앱 포함'을 켜면 시스템 앱도 볼 수 있습니다."
+        filter == ScanFilter.SUSPICIOUS -> "위험도 중간 이상인 앱이 없습니다.$trustedNote"
+        filter == ScanFilter.RECENT -> "최근 ${recentDays}일 안에 설치하거나 업데이트한 앱이 없습니다.$trustedNote"
+        filter == ScanFilter.HIDDEN_ICON -> "아이콘을 숨긴 앱이 없습니다.$trustedNote"
+        else -> "표시할 앱이 없습니다.$trustedNote '시스템 앱 포함'을 켜면 시스템 앱도 볼 수 있습니다."
     }
     val rowPadding = Modifier.padding(horizontal = 16.dp)
 
@@ -143,10 +147,16 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
                 rowPadding.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                SummaryCount("위험 높음", high, RiskLevel.HIGH)
-                SummaryCount("위험 중간", medium, RiskLevel.MEDIUM)
-                SummaryCount("위험 낮음", low, RiskLevel.LOW)
+                SummaryCount("위험 높음", counts.high, RiskLevel.HIGH)
+                SummaryCount("위험 중간", counts.medium, RiskLevel.MEDIUM)
+                SummaryCount("위험 낮음", counts.low, RiskLevel.LOW)
             }
+            Text(
+                "아는 앱은 앱을 눌러 '아는 앱으로 표시'하면 결과에서 빠집니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = rowPadding.padding(bottom = 8.dp),
+            )
         }
         item(key = "filters") {
             LazyRow(
@@ -182,6 +192,16 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
                 Text("시스템 앱 포함", modifier = Modifier.weight(1f))
                 Switch(checked = includeSystem, onCheckedChange = null)
             }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = includeTrusted, role = Role.Switch, onValueChange = { includeTrusted = it })
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("아는 앱 포함 (${presentTrusted.size}개)", modifier = Modifier.weight(1f))
+                Switch(checked = includeTrusted, onCheckedChange = null)
+            }
             HorizontalDivider()
         }
         if (shown.isEmpty() && !scanning) {
@@ -190,7 +210,7 @@ fun ScanScreen(onOpenApp: (String) -> Unit) {
             }
         }
         items(shown, key = { it.packageName }) { app ->
-            AppRow(app, onClick = { onOpenApp(app.packageName) })
+            AppRow(app, isTrusted = app.packageName in trusted, onClick = { onOpenApp(app.packageName) })
             HorizontalDivider(rowPadding)
         }
     }
@@ -210,7 +230,7 @@ private fun SummaryCount(label: String, count: Int, level: RiskLevel) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AppRow(app: AppInfo, onClick: () -> Unit) {
+private fun AppRow(app: AppInfo, isTrusted: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -226,7 +246,7 @@ private fun AppRow(app: AppInfo, onClick: () -> Unit) {
                 "${formatTime(app.firstInstallTime)} · ${app.installSource.label}",
                 style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            val flags = flagLabels(app)
+            val flags = if (isTrusted) listOf("아는 앱") + flagLabels(app) else flagLabels(app)
             if (flags.isNotEmpty()) {
                 FlowRow(
                     Modifier.padding(top = 4.dp),

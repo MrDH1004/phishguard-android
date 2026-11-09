@@ -3,6 +3,7 @@ package kr.phishguard.app.update
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -21,16 +22,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.withContext
 import kr.phishguard.app.BuildConfig
+import kr.phishguard.app.scan.ScanRepository
+import kr.phishguard.app.scan.TrustList
 import kr.phishguard.app.ui.EmergencyCallButtons
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.ScreenTitle
@@ -123,7 +129,10 @@ fun UpdatePromptHost() {
 
 @Composable
 fun SettingsScreen() {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val trusted by TrustList.trusted.collectAsStateWithLifecycle()
+    val apps by ScanRepository.apps.collectAsStateWithLifecycle()
     var checking by remember { mutableStateOf(false) }
     var resultText by remember { mutableStateOf("") }
     var available by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -159,6 +168,29 @@ fun SettingsScreen() {
             Text(resultText, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
         available?.let { UpdateDialog(it, flow) { available = null } }
+
+        SectionTitle("아는 앱")
+        if (trusted.isEmpty()) {
+            Text("아는 앱으로 표시한 앱이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        trusted.map { pkg -> pkg to (apps.firstOrNull { it.packageName == pkg }?.label ?: pkg) }
+            .sortedBy { it.second }
+            .forEach { (pkg, label) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(label)
+                        Text(
+                            pkg,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TextButton(
+                        onClick = { TrustList.set(context, pkg, false) },
+                        modifier = Modifier.semantics { contentDescription = "$label 아는 앱 해제" },
+                    ) { Text("해제") }
+                }
+            }
 
         SectionTitle("앱 소개")
         Text("피싱앱 검사기는 휴대폰에 설치된 앱의 권한과 설치 출처를 규칙으로 점검해 의심 앱을 찾고, 통신을 감시하며, 증거를 보존한 뒤 안전하게 삭제하도록 돕습니다.")

@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kr.phishguard.app.history.HistoryTracker
 
 /** 앱 조사 결과 공유 저장소. */
 object ScanRepository {
@@ -44,6 +45,7 @@ object ScanRepository {
             onProgress?.invoke(index + 1, packages.size)
         }
         _apps.value = result
+        HistoryTracker.sync(appContext, result)
         return result
     }
 

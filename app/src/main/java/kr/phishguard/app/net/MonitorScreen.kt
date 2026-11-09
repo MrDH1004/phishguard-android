@@ -53,6 +53,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kr.phishguard.app.scan.RiskLevel
 import kr.phishguard.app.scan.ScanRepository
+import kr.phishguard.app.scan.TrustList
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskHigh
 import kr.phishguard.app.ui.RiskLow
@@ -65,6 +66,8 @@ private data class UsageRow(
     val label: String,
     val risk: RiskLevel?,
     val usage: UidUsage,
+    /** 검사 결과에 있는 앱인지 (열기·차단 스위치 표시 기준). */
+    val scanned: Boolean,
 )
 
 private const val PCAPDROID_PKG = "com.emanuelef.remote_capture"
@@ -75,6 +78,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
     val context = LocalContext.current
     val apps by ScanRepository.apps.collectAsState()
     val blocked by BlockList.blocked.collectAsState()
+    val trusted by TrustList.trusted.collectAsState()
     val running by MonitorVpnService.running.collectAsState()
     var hasAccess by remember { mutableStateOf(UsageStats.hasAccess(context)) }
     var periodDays by remember { mutableIntStateOf(1) }
@@ -90,7 +94,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
         refreshKey++
     }
 
-    LaunchedEffect(hasAccess, periodDays, apps, refreshKey) {
+    LaunchedEffect(hasAccess, periodDays, apps, trusted, refreshKey) {
         if (!hasAccess) { rows = emptyList(); loading = false; return@LaunchedEffect }
         loading = true
         val since = System.currentTimeMillis() - periodDays * 24L * 3600_000L
@@ -107,7 +111,9 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                         1000 -> "안드로이드 시스템"
                         else -> "uid ${u.uid}"
                     }
-                    UsageRow(u.uid, pkg, label, app?.riskLevel, u)
+                    // 아는 앱은 위험 표시·정렬 우선순위 없이 보인다.
+                    val risk = if (app != null && app.packageName in trusted) null else app?.riskLevel
+                    UsageRow(u.uid, pkg, label, risk, u, scanned = app != null)
                 }
                 .sortedWith(compareBy<UsageRow> { it.risk?.ordinal ?: 3 }.thenByDescending { it.usage.totalTx })
         }
@@ -251,7 +257,7 @@ private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) 
         else -> MaterialTheme.colorScheme.onSurface
     }
     val pkg = r.pkg
-    val openable = pkg != null && r.risk != null
+    val openable = pkg != null && r.scanned
     val content: @Composable () -> Unit = {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -263,7 +269,7 @@ private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) 
                     style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
                 )
             }
-            if (pkg != null && pkg != context.packageName && r.risk != null) {
+            if (pkg != null && pkg != context.packageName && r.scanned) {
                 Spacer(Modifier.width(8.dp))
                 val isBlocked = pkg in blocked
                 Column(
