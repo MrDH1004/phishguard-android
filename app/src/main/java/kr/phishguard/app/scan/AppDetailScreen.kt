@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kr.phishguard.app.net.PcapdroidMonitorSection
 import kr.phishguard.app.remove.EvidenceSaveSection
 import kr.phishguard.app.ui.ErrorText
 import kr.phishguard.app.ui.RiskHigh
@@ -184,6 +185,11 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
             ) { Text("앱 정보 열기") }
             if (settingsOpenFailed) {
                 ErrorText("앱 정보 화면을 열 수 없습니다. 설정 > 애플리케이션에서 '${app.label}'을 직접 찾아 여세요.")
+            }
+
+            if (!isSelf) {
+                SectionTitle("통신 확인 (PCAPdroid)")
+                PcapdroidMonitorSection(app.packageName, app.label)
             }
 
             SectionTitle("설치 정보")
