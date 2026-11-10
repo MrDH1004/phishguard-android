@@ -31,8 +31,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -131,10 +133,30 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
 
             SectionTitle("위험도")
             RiskBadge(app.riskLevel, app.riskScore)
+            when {
+                isSelf -> Unit
+                app.isSystem -> {
+                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("증거 저장 후 삭제하기") }
+                    Text(
+                        "시스템 앱은 삭제할 수 없습니다. 비활성화는 앱 정보 화면에서 확인하세요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                else -> Button(
+                    onClick = { onStartRemoval(app.packageName) },
+                    colors = ButtonDefaults.buttonColors(containerColor = RiskHigh),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("증거 저장 후 삭제하기") }
+            }
+
             if (app.matchedRules.isEmpty()) {
                 Text("해당되는 의심 규칙이 없습니다.", style = MaterialTheme.typography.bodyMedium)
             } else {
-                app.matchedRules.forEach { r ->
+                val sortedRules = remember(app.matchedRules) { app.matchedRules.sortedByDescending { it.points } }
+                var showAllRules by rememberSaveable(app.packageName) { mutableStateOf(false) }
+                val visibleRules = if (showAllRules) sortedRules else sortedRules.take(3)
+                visibleRules.forEach { r ->
                     Column(Modifier.fillMaxWidth()) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(r.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -157,24 +179,13 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
                         }
                     }
                 }
+                if (sortedRules.size > 3) {
+                    TextButton(onClick = { showAllRules = !showAllRules }) {
+                        Text(if (showAllRules) "접기" else "위험 근거 더 보기 (${sortedRules.size - 3}개)")
+                    }
+                }
             }
 
-            when {
-                isSelf -> Unit
-                app.isSystem -> {
-                    Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("증거 저장 후 삭제하기") }
-                    Text(
-                        "시스템 앱은 삭제할 수 없습니다. 비활성화는 앱 정보 화면에서 확인하세요.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                else -> Button(
-                    onClick = { onStartRemoval(app.packageName) },
-                    colors = ButtonDefaults.buttonColors(containerColor = RiskHigh),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("증거 저장 후 삭제하기") }
-            }
             if (!isSelf) {
                 EvidenceSaveSection(app)
                 TrustSection(app)
