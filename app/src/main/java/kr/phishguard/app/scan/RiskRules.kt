@@ -24,6 +24,16 @@ data class RiskInput(
     val declaresInCallService: Boolean = false,
     /** 기기의 시스템 앱과 같은 서명 인증서로 서명됨 */
     val vendorSigned: Boolean = false,
+    /** 서명 인증서 SHA-256 (소문자 hex) */
+    val signerDigests: Set<String> = emptySet(),
+    /** 서명 인증서 주체 이름 (예: "CN=Android Debug, O=Android, C=US") */
+    val signerSubjects: List<String> = emptyList(),
+    /** 이 앱 앞뒤 1시간 안에 함께 설치된 다른 외부 설치(APK 직접 설치) 앱 수 */
+    val nearbyUnknownInstalls: Int = 0,
+    /** 최근 30일 업로드 바이트. 사용 정보 접근 권한이 없으면 null */
+    val uploadBytes30d: Long? = null,
+    /** 최근 30일 다운로드 바이트. 사용 정보 접근 권한이 없으면 null */
+    val downloadBytes30d: Long? = null,
 )
 
 /** 규칙 평가 시점의 입력 + 현재 시각 */
@@ -62,6 +72,8 @@ object RiskRules {
     /** 기본 전화/문자 앱 가로채기 규칙 id (화면 경고 배너가 사용) */
     const val ID_DEFAULT_ROLE_HIJACK = "default_role_hijack"
     const val ID_VENDOR_SIGNED = "vendor_signed"
+    const val ID_KNOWN_THREAT = "known_threat"
+    const val ID_FAKE_OFFICIAL = "fake_official_app"
 
     /** 사칭에 자주 쓰이는 이름 키워드 (라벨은 대소문자 무시, 패키지명은 영문 키워드만 비교) */
     val IMPERSONATION_KEYWORDS = listOf(
@@ -95,6 +107,91 @@ object RiskRules {
      * 대신 0점짜리 참고 규칙 vendor_signed가 표시된다.
      */
     val ALL: List<RiskRule> = listOf(
+        RiskRule(
+            ID_KNOWN_THREAT,
+            "실제 보이스피싱 피해에서 확인된 악성앱과 같은 패키지/서명",
+            100,
+            "가족 폰 피해 사례에서 직접 분석한 악성앱과 같은 앱입니다. 통화 가로채기·알림 엿보기·대량 파일 유출 기능이 확인됐습니다. 바로 증거를 저장하고 인터넷을 끊으세요.",
+        ) { !it.exemptSystem && ThreatIntel.isKnownBad(it.input.packageName, it.input.signerDigests) },
+        RiskRule(
+            ID_FAKE_OFFICIAL,
+            "유명 앱과 패키지명은 같은데 서명이 다름 — 가짜 앱 확정",
+            95,
+            "카카오톡·은행 같은 진짜 앱의 이름표(패키지명)를 그대로 베낀 가짜입니다. 진짜 회사의 서명 키는 베낄 수 없어 서명이 다릅니다. 이 앱에 입력한 비밀번호·인증번호는 사기범에게 넘어갑니다.",
+        ) {
+            // Play 스토어 설치는 제외: 스토어가 패키지 소유자를 확인하므로, 서명이 다르면 공식 키 교체(목록 갱신 필요)일 뿐이다
+            !it.exemptSystem && it.input.installSource != InstallSource.PLAY_STORE &&
+                ThreatIntel.isOfficialSignerMismatch(it.input.packageName, it.input.signerDigests)
+        },
+        RiskRule(
+            "official_app_sideloaded",
+            "Play 스토어에 있는 앱인데 파일(APK)로 직접 설치됨",
+            20,
+            "스토어에서 받으면 되는 앱을 굳이 파일로 설치한 것은 사기범이 보낸 링크로 깔았을 때 흔히 보입니다. 같은 이름의 앱은 지우고 Play 스토어에서 다시 받으세요.",
+        ) { unknownSource(it) && ThreatIntel.isOfficialPackage(it.input.packageName) },
+        RiskRule(
+            "remote_control_recent",
+            "원격조종 앱이 최근 30일 안에 설치됨",
+            30,
+            "사기범이 \"보안 점검\"이라며 설치시키는 원격조종 앱입니다. 화면을 보면서 휴대폰을 대신 조작해 악성앱을 깔고 송금할 수 있습니다. 직접 설치한 기억이 없으면 지우세요.",
+        ) {
+            !it.exemptSystem && it.ageMillis in 0..(30 * DAY_MS) &&
+                ThreatIntel.isRemoteControl(it.input.packageName, it.input.label)
+        },
+        RiskRule(
+            "remote_control",
+            "원격조종 앱 설치됨",
+            10,
+            "다른 사람이 화면을 보고 휴대폰을 조작할 수 있는 앱입니다. 쓰지 않으면 지우는 것이 안전합니다.",
+        ) {
+            !it.exemptSystem && it.ageMillis > 30 * DAY_MS &&
+                ThreatIntel.isRemoteControl(it.input.packageName, it.input.label)
+        },
+        RiskRule(
+            "system_impersonation",
+            "카메라·Play 스토어·삼성·구글 같은 기본 앱을 흉내 낸 이름 (외부 설치)",
+            30,
+            "진짜 기본 앱은 휴대폰에 처음부터 들어 있거나 공식 스토어로만 설치됩니다. 같은 이름을 쓴 외부 앱은 지우지 못하게 속이려는 가짜입니다.",
+        ) {
+            // 제조사 서명 앱은 제외: 갤럭시 기본 앱 '팁'은 설치자가 PrePackageInstaller라 출처가 UNKNOWN으로 보이지만
+            // 시스템 앱과 같은 플랫폼 키로 서명돼 있다 (실기기 확인). 사칭범은 제조사 키를 가질 수 없다.
+            it.untrustedOrigin && !it.input.vendorSigned &&
+                ThreatIntel.impersonatesSystem(it.input.packageName, it.input.label)
+        },
+        RiskRule(
+            "obfuscated_name",
+            "무작위 글자로 된 난독화 패키지명 (외부 설치)",
+            15,
+            "정상 앱은 회사·서비스 이름으로 패키지명을 짓습니다. 무작위 글자는 악성앱이 탐지를 피하려고 쓰는 방법입니다.",
+        ) { it.untrustedOrigin && ThreatIntel.isObfuscatedPackage(it.input.packageName) },
+        RiskRule(
+            "debug_cert",
+            "개발용 테스트 인증서(Android Debug)로 서명됨",
+            20,
+            "정식으로 배포되는 앱은 개발용 인증서를 쓰지 않습니다. 급하게 만든 가짜 앱에서 자주 보입니다.",
+        ) { it.untrustedOrigin && it.input.signerSubjects.any { s -> ThreatIntel.isDebugCertificate(s) } },
+        RiskRule(
+            "placeholder_cert",
+            "서명 인증서 정보가 엉터리(\"1\" 같은 값)임",
+            15,
+            "회사 이름 없이 아무 값이나 넣은 인증서입니다. 누가 만들었는지 숨기려는 앱일 수 있습니다.",
+        ) { it.untrustedOrigin && it.input.signerSubjects.any { s -> ThreatIntel.isPlaceholderCertificate(s) } },
+        RiskRule(
+            "install_burst",
+            "다른 외부 설치 앱과 1시간 안에 몰아서 설치됨",
+            15,
+            "사기범이 원격조종이나 링크로 여러 악성앱을 짧은 시간에 연달아 설치하는 수법입니다. 같은 무렵 설치된 앱을 모두 확인하세요.",
+        ) { unknownSource(it) && it.input.nearbyUnknownInstalls >= 1 },
+        RiskRule(
+            "large_upload",
+            "최근 30일 동안 500MB 넘게 업로드함 (외부 설치)",
+            25,
+            "사진·파일·녹음 같은 자료를 밖으로 대량으로 보냈을 수 있습니다. 데이터 사용량 화면에서 보낸 양을 확인하세요.",
+        ) {
+            val up = it.input.uploadBytes30d
+            val down = it.input.downloadBytes30d
+            it.untrustedOrigin && up != null && up >= ThreatIntel.LARGE_UPLOAD_BYTES && (down == null || up > down)
+        },
         RiskRule(
             ID_DEFAULT_ROLE_HIJACK,
             "기본 전화/문자 앱을 차지함 — 112·은행 전화를 가로챌 수 있음",

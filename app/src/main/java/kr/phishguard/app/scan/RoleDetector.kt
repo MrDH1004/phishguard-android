@@ -9,7 +9,12 @@ import android.os.Build
 import android.provider.Telephony
 import android.telecom.TelecomManager
 import android.util.Log
+import java.io.ByteArrayInputStream
 import java.security.MessageDigest
+import java.security.cert.CertificateException
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
+import javax.security.auth.x500.X500Principal
 
 /**
  * 기본 전화/문자 앱과 통화 관련 기능을 선언한 앱 조사.
@@ -93,26 +98,36 @@ object RoleDetector {
         }
 
     /** 앱 서명 인증서의 SHA-256 (소문자 hex). 여러 서명자면 모두, 아니면 교체 이력 포함. */
-    class Signers(val digests: Set<String>, val multiple: Boolean)
+    class Signers(val digests: Set<String>, val multiple: Boolean, val subjects: List<String> = emptyList())
 
     fun signersOf(pi: PackageInfo): Signers {
         return try {
-            if (Build.VERSION.SDK_INT >= 28) {
+            val (certs, multiple) = if (Build.VERSION.SDK_INT >= 28) {
                 val info = pi.signingInfo ?: return Signers(emptySet(), false)
                 if (info.hasMultipleSigners()) {
-                    Signers(info.apkContentsSigners.orEmpty().map { sha256(it.toByteArray()) }.toSet(), true)
+                    info.apkContentsSigners.orEmpty().map { it.toByteArray() } to true
                 } else {
-                    Signers(info.signingCertificateHistory.orEmpty().map { sha256(it.toByteArray()) }.toSet(), false)
+                    info.signingCertificateHistory.orEmpty().map { it.toByteArray() } to false
                 }
             } else {
                 @Suppress("DEPRECATION")
                 val sigs = pi.signatures.orEmpty()
-                Signers(sigs.map { sha256(it.toByteArray()) }.toSet(), sigs.size > 1)
+                sigs.map { it.toByteArray() } to (sigs.size > 1)
             }
+            Signers(certs.map { sha256(it) }.toSet(), multiple, certs.mapNotNull { subjectOf(it, pi.packageName) })
         } catch (e: RuntimeException) {
             Log.w(TAG, "signer read failed: ${pi.packageName}", e)
             Signers(emptySet(), false)
         }
+    }
+
+    /** X.509 인증서 주체 이름 (RFC 2253, 예: "CN=Android Debug,O=Android,C=US"). 읽지 못하면 null */
+    private fun subjectOf(der: ByteArray, pkg: String): String? = try {
+        val cert = CertificateFactory.getInstance("X.509").generateCertificate(ByteArrayInputStream(der)) as? X509Certificate
+        cert?.subjectX500Principal?.getName(X500Principal.RFC2253)
+    } catch (e: CertificateException) {
+        Log.w(TAG, "certificate parse failed: $pkg", e)
+        null
     }
 
     /**

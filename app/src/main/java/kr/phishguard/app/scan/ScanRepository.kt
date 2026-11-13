@@ -13,13 +13,15 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kr.phishguard.app.history.HistoryTracker
+import kr.phishguard.app.net.UidUsage
+import kr.phishguard.app.net.UsageStats
 
 /** 앱 조사 결과 공유 저장소. */
 object ScanRepository {
     private const val TAG = "ScanRepository"
 
-    // Play 스토어 외 설치자(삼성/원스토어/KT/LG 스토어 포함)는 모두 OTHER_STORE(+5)이며
-    // 설치자 정보가 없는 UNKNOWN(+30)보다 낮은 위험으로 취급한다.
+    // 설치 출처 판정은 InstallSourceClassifier: 설치자 없음·기본 패키지 설치 프로그램 = UNKNOWN(+30, APK 직접 설치),
+    // Play 스토어 외 설치자(삼성/원스토어/KT/LG 스토어 포함) = OTHER_STORE(+5).
     private val _apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val apps: StateFlow<List<AppInfo>> = _apps
 
@@ -38,6 +40,14 @@ object ScanRepository {
     @Volatile
     private var systemSignersCache: Set<String>? = null
 
+    /** 마지막 전체 검사에서 모은 외부 설치(UNKNOWN) 앱의 설치 시각. 앱 하나 다시 조사할 때 재사용. */
+    @Volatile
+    private var unknownInstallTimesCache: Map<String, Long> = emptyMap()
+
+    /** 마지막 전체 검사에서 모은 uid별 최근 30일 데이터 사용량 (권한 없으면 빈 맵) */
+    @Volatile
+    private var usageCache: Map<Int, UidUsage>? = null
+
     /** 기기 앱 전체를 조사해 결과를 갱신하고 반환 (IO 스레드에서 호출) */
     fun scan(context: Context, onProgress: ((done: Int, total: Int) -> Unit)? = null): List<AppInfo> {
         val appContext = context.applicationContext
@@ -50,8 +60,10 @@ object ScanRepository {
         }
         val systemSigners = systemSignersOf(packages)
         systemSignersCache = systemSigners
-        val env = ScanEnv.create(appContext, systemSigners)
         val now = System.currentTimeMillis()
+        unknownInstallTimesCache = unknownInstallTimesOf(pm, packages, appContext.packageName)
+        usageCache = queryUsage(appContext, now)
+        val env = ScanEnv.create(appContext, systemSigners, unknownInstallTimesCache, usageCache)
         val result = ArrayList<AppInfo>(packages.size)
         packages.forEachIndexed { index, pi ->
             try {
@@ -76,7 +88,8 @@ object ScanRepository {
             val systemSigners = systemSignersCache ?: systemSignersOf(getInstalledPackagesCompat(pm)).also {
                 systemSignersCache = it
             }
-            val env = ScanEnv.create(appContext, systemSigners)
+            val usage = usageCache ?: queryUsage(appContext, System.currentTimeMillis()).also { usageCache = it }
+            val env = ScanEnv.create(appContext, systemSigners, unknownInstallTimesCache, usage)
             _defaults.value = defaultAppsOf(pm, env.roles)
             buildAppInfo(appContext, pm, pi, env, System.currentTimeMillis())
         } catch (e: PackageManager.NameNotFoundException) {
@@ -94,6 +107,28 @@ object ScanRepository {
     fun find(packageName: String): AppInfo? = _apps.value.firstOrNull { it.packageName == packageName }
 
     // ---- 내부 구현 ----
+
+    private const val USAGE_WINDOW_MS = 30L * RiskRules.DAY_MS
+
+    /** 최근 30일 uid별 데이터 사용량. 사용 정보 접근 권한이 없으면 null (규칙에서 판단하지 않음) */
+    private fun queryUsage(context: Context, now: Long): Map<Int, UidUsage>? {
+        if (!UsageStats.hasAccess(context)) return null
+        return UsageStats.query(context, now - USAGE_WINDOW_MS)
+    }
+
+    /** 시스템 앱·이 앱을 뺀, APK 직접 설치(UNKNOWN) 앱의 패키지 → 최초 설치 시각 */
+    private fun unknownInstallTimesOf(pm: PackageManager, packages: List<PackageInfo>, selfPackage: String): Map<String, Long> {
+        val out = HashMap<String, Long>()
+        packages.forEach { pi ->
+            val ai = pi.applicationInfo ?: return@forEach
+            if (pi.packageName == selfPackage) return@forEach
+            val isSystem = (ai.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+            if (InstallSourceClassifier.classify(isSystem, installerOf(pm, pi.packageName)) == InstallSource.UNKNOWN) {
+                out[pi.packageName] = pi.firstInstallTime
+            }
+        }
+        return out
+    }
 
     /** 미리 설치된 시스템 앱(FLAG_SYSTEM)의 서명 인증서 SHA-256 집합 */
     private fun systemSignersOf(packages: List<PackageInfo>): Set<String> {
@@ -135,9 +170,17 @@ object ScanRepository {
         val selfPackage: String,
         val roles: RoleDetector.Snapshot,
         val systemSigners: Set<String>,
+        val unknownInstallTimes: Map<String, Long>,
+        /** 사용 정보 접근 권한이 없으면 null */
+        val usage: Map<Int, UidUsage>?,
     ) {
         companion object {
-            fun create(context: Context, systemSigners: Set<String>): ScanEnv {
+            fun create(
+                context: Context,
+                systemSigners: Set<String>,
+                unknownInstallTimes: Map<String, Long>,
+                usage: Map<Int, UidUsage>?,
+            ): ScanEnv {
                 val pm = context.packageManager
                 val launcher = try {
                     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -168,6 +211,8 @@ object ScanRepository {
                     selfPackage = context.packageName,
                     roles = RoleDetector.snapshot(context),
                     systemSigners = systemSigners,
+                    unknownInstallTimes = unknownInstallTimes,
+                    usage = usage,
                 )
             }
 
@@ -260,12 +305,7 @@ object ScanRepository {
             pkg
         }
         val installer = installerOf(pm, pkg)
-        val source = when {
-            isSystem -> InstallSource.SYSTEM
-            installer == null -> InstallSource.UNKNOWN
-            installer == "com.android.vending" -> InstallSource.PLAY_STORE
-            else -> InstallSource.OTHER_STORE
-        }
+        val source = InstallSourceClassifier.classify(isSystem, installer)
         val uid = ai?.uid ?: -1
         val hasLauncher = pkg in env.launcherPackages
 
@@ -325,7 +365,17 @@ object ScanRepository {
         val declaresCallRedirection = pkg in env.roles.callRedirection
         val declaresCallScreening = pkg in env.roles.callScreening
         val declaresInCall = pkg in env.roles.inCall
-        val vendorSigned = RoleDetector.isSignedBy(RoleDetector.signersOf(pi), env.systemSigners)
+        val signers = RoleDetector.signersOf(pi)
+        val vendorSigned = RoleDetector.isSignedBy(signers, env.systemSigners)
+        val nearbyUnknown = if (source == InstallSource.UNKNOWN && !isSelf) {
+            ThreatIntel.countNearby(
+                pi.firstInstallTime,
+                env.unknownInstallTimes.filterKeys { it != pkg }.values.toList() + pi.firstInstallTime,
+            )
+        } else {
+            0
+        }
+        val uidUsage = env.usage?.let { u -> u[uid] ?: UidUsage(uid, 0, 0, 0, 0) }
         val input = RiskInput(
             packageName = pkg,
             label = label,
@@ -345,6 +395,11 @@ object ScanRepository {
             declaresCallScreening = declaresCallScreening,
             declaresInCallService = declaresInCall,
             vendorSigned = vendorSigned,
+            signerDigests = signers.digests,
+            signerSubjects = signers.subjects,
+            nearbyUnknownInstalls = nearbyUnknown,
+            uploadBytes30d = uidUsage?.totalTx,
+            downloadBytes30d = uidUsage?.totalRx,
         )
         val risk = RiskScorer.score(input, now)
 
