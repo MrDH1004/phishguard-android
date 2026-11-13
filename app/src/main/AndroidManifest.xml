@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 가족 연결: 알림이 늦지 않게 배터리 최적화 제외 요청 (사용자가 직접 허용) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 부팅 후 감시 작업 재예약 / 차단 복구 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 삭제 요청 / 업데이트 설치 -->
@@ -25,6 +27,7 @@
 
     <application
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -51,6 +54,26 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="local_vpn_traffic_monitor" />
+        </service>
+
+        <!-- 가족 연결: 부모 폰 — 앱 설치 즉시 감지해 자녀 폰에 알림 -->
+        <service
+            android:name=".family.ParentGuardService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="family_risk_alert_sender" />
+        </service>
+
+        <!-- 가족 연결: 자녀 폰 — 부모 폰 위험 알림 실시간 수신 (WebSocket) -->
+        <service
+            android:name=".family.ChildWatchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="family_risk_alert_receiver" />
         </service>
 
         <receiver

@@ -1,0 +1,17 @@
+# 가족 연결 중계 서버 (Cloudflare Worker + Durable Objects)
+# 배포: cd server/family && npx wrangler@4 deploy
+name = "phishguard-family"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "FAMILY"
+class_name = "Family"
+
+[[durable_objects.bindings]]
+name = "PINS"
+class_name = "PinRegistry"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Family", "PinRegistry"]

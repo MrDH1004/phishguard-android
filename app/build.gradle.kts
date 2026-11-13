@@ -24,6 +24,8 @@ android {
         targetSdk = 35
         versionCode = versionCodeInt
         versionName = versionNameStr
+        // 가족 연결 중계 서버 (server/family, Cloudflare Worker)
+        buildConfigField("String", "FAMILY_SERVER_URL", "\"https://phishguard-family.hicom15.workers.dev\"")
         buildConfigField("String", "GITHUB_REPO", "\"${System.getenv("GITHUB_REPOSITORY") ?: "MrDH1004/phishguard-android"}\"")
     }
 
@@ -76,6 +78,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("org.json:json:20240303")
+    // 가족 연결 실시간 수신 (WebSocket)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

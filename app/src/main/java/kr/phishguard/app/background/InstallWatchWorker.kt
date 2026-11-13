@@ -15,6 +15,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kr.phishguard.app.family.FamilyController
 import kr.phishguard.app.history.HistoryEvent
 import kr.phishguard.app.history.HistoryEventType
 import kr.phishguard.app.history.HistoryStore
@@ -38,6 +39,8 @@ class InstallWatchWorker(context: Context, params: WorkerParameters) : Coroutine
             return@withContext Result.retry()
         }
         HistoryStore.ensureLoaded(ctx)
+        // 가족 연결: 부모 폰은 위험 앱·생존 신호 전송, 자녀 폰은 실시간 연결이 끊겨 있으면 놓친 알림 확인
+        FamilyController.periodic(ctx)
 
         val fresh = HistoryStore.events.value.filter {
             it.detectedAt > since &&

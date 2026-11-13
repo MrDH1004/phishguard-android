@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.util.Log
+import kr.phishguard.app.family.FamilyController
 import kr.phishguard.app.net.BlockList
 import kr.phishguard.app.net.MonitorVpnService
 
@@ -17,6 +18,7 @@ class BootReceiver : BroadcastReceiver() {
         if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = context.applicationContext
         BackgroundScheduler.ensureScheduled(app)
+        FamilyController.ensureServices(app)
 
         BlockList.load(app)
         if (BlockList.blocked.value.isEmpty()) return
