@@ -64,7 +64,7 @@ data class FamilyEvent(
     /** alert면 앱 하나, snapshot이면 여러 개 */
     val apps: List<AlertApp>
         get() = when (type) {
-            TYPE_ALERT -> data.optJSONObject("app")?.let { listOf(AlertApp.fromJson(it)) } ?: emptyList()
+            TYPE_ALERT, TYPE_DECISION -> data.optJSONObject("app")?.let { listOf(AlertApp.fromJson(it)) } ?: emptyList()
             TYPE_SNAPSHOT -> data.optJSONArray("apps")?.let { a ->
                 (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(AlertApp::fromJson) }
             } ?: emptyList()
@@ -80,6 +80,14 @@ data class FamilyEvent(
         const val TYPE_UNLINKED = "unlinked"
         const val TYPE_PARENT_SILENT = "parent_silent"
         const val TYPE_PARENT_BACK = "parent_back"
+        const val TYPE_JOIN_REQUEST = "join_request"
+        const val TYPE_JOIN_REJECTED = "join_rejected"
+        /** 부모 폰 → 자녀: 위험 기준을 넘은 앱, 잠금/차단/무시를 골라 달라는 요청 */
+        const val TYPE_DECISION = "decision"
+        /** 자녀가 보낸 명령 기록 */
+        const val TYPE_COMMAND_SENT = "command_sent"
+        /** 부모 폰이 명령을 실행한 결과 (자동 차단 포함) */
+        const val TYPE_COMMAND_RESULT = "command_result"
 
         fun fromJson(o: JSONObject): FamilyEvent = FamilyEvent(
             id = o.optLong("id"),
@@ -89,6 +97,16 @@ data class FamilyEvent(
         )
     }
 }
+
+/** 자녀 폰 화면용: 아직 답하지 않은 결정 요청 */
+data class PendingDecision(
+    val requestId: String,
+    val app: AlertApp,
+    val reason: String,
+    val previousScore: Int,
+    val autoBlockAt: Long,
+    val requestedAt: Long,
+)
 
 /** 부모 폰이 무엇을 보낼지 정하는 순수 로직 (Android 의존 없음) */
 object FamilyPolicy {
@@ -132,13 +150,40 @@ object FamilyPolicy {
         RiskLevel.HIGH -> 2
     }
 
+    /**
+     * 자녀 폰 화면용: 결정 요청 중 아직 처리되지 않은 것. 자녀가 명령을 보냈거나(command_sent)
+     * 부모 폰이 결과를 알렸으면(command_result, 자동 차단 포함) 끝난 것으로 본다.
+     */
+    fun pendingDecisions(events: List<FamilyEvent>): List<PendingDecision> {
+        val done = events.filter { it.type == FamilyEvent.TYPE_COMMAND_SENT || it.type == FamilyEvent.TYPE_COMMAND_RESULT }
+            .mapNotNull { it.data.optString("requestId").ifEmpty { null } }.toSet()
+        return events.filter { it.type == FamilyEvent.TYPE_DECISION }
+            .mapNotNull { e ->
+                val id = e.data.optString("requestId")
+                val app = e.apps.firstOrNull()
+                if (id.isEmpty() || id in done || app == null) null
+                else PendingDecision(id, app, e.data.optString("reason"), e.data.optInt("previousScore"), e.data.optLong("autoBlockAt"), e.ts)
+            }
+            .distinctBy { it.requestId } // 부모 폰이 같은 요청을 다시 보낸 경우
+            .sortedByDescending { it.requestedAt }
+    }
+
+    /** 자녀 폰 화면용: 아직 답하지 않은 연결 요청의 부모 폰 이름 (없으면 null) */
+    fun pendingJoinName(events: List<FamilyEvent>, paired: Boolean): String? {
+        if (paired) return null
+        val last = events.lastOrNull {
+            it.type == FamilyEvent.TYPE_JOIN_REQUEST || it.type == FamilyEvent.TYPE_JOIN_REJECTED || it.type == FamilyEvent.TYPE_PAIRED
+        } ?: return null
+        return if (last.type == FamilyEvent.TYPE_JOIN_REQUEST) last.data.optString("parentName").ifEmpty { "부모 폰" } else null
+    }
+
     /** 자녀 폰 화면용: 사건 목록에서 패키지별 최신 위험 앱 목록 (가장 최근 snapshot 이후 alert를 덮어씀) */
     fun currentRiskyApps(events: List<FamilyEvent>): List<AlertApp> {
         val sorted = events.sortedBy { it.id }
         val lastSnap = sorted.lastOrNull { it.type == FamilyEvent.TYPE_SNAPSHOT }
         val map = LinkedHashMap<String, AlertApp>()
         lastSnap?.apps?.forEach { map[it.packageName] = it }
-        sorted.filter { it.type == FamilyEvent.TYPE_ALERT && (lastSnap == null || it.id > lastSnap.id) }
+        sorted.filter { (it.type == FamilyEvent.TYPE_ALERT || it.type == FamilyEvent.TYPE_DECISION) && (lastSnap == null || it.id > lastSnap.id) }
             .forEach { e -> e.apps.forEach { map[it.packageName] = it } }
         return map.values.sortedByDescending { it.riskScore }
     }

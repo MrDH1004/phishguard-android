@@ -101,13 +101,14 @@ object FamilyStore {
         _state.value = _state.value.copy(pin = pin, pinExpiresAt = expiresAt, lastError = null)
     }
 
+    /** 부모: PIN 입력 직후. 자녀 폰이 승인하기 전까지 paired = false */
     fun startParent(context: Context, token: String, childName: String) = synchronized(lock) {
         clearLocked(context)
         prefs(context).edit()
             .putString("role", FamilyRole.PARENT.name).putString("token", token)
-            .putString("other_name", childName).putBoolean("paired", true)
+            .putString("other_name", childName).putBoolean("paired", false)
             .apply()
-        _state.value = FamilyState(role = FamilyRole.PARENT, paired = true, otherName = childName)
+        _state.value = FamilyState(role = FamilyRole.PARENT, paired = false, otherName = childName)
     }
 
     /** 연결 정보·사건 모두 지움 */
@@ -202,6 +203,85 @@ object FamilyStore {
 
     fun markSnapshotSent(context: Context, gen: Int) = synchronized(lock) {
         if (gen == generation) prefs(context).edit().putBoolean("snapshot_sent", true).apply()
+    }
+
+    // ---- 부모: 승인·명령·결정 요청 ----
+
+    /** 자녀 폰이 연결을 승인함 */
+    fun setApproved(context: Context, gen: Int) = mutate(context, gen) { it.copy(paired = true, lastError = null) }
+
+    fun lastCommandId(context: Context): Long = prefs(context).getLong("last_cmd", 0)
+
+    /** 명령을 한 번만 실행하도록: 처음 보는 id면 true를 돌려주고 기록 */
+    fun claimCommand(context: Context, id: Long, gen: Int): Boolean {
+        synchronized(lock) {
+            if (gen != generation) return false
+            val p = prefs(context)
+            if (id <= p.getLong("last_cmd", 0)) return false
+            p.edit().putLong("last_cmd", id).apply()
+            return true
+        }
+    }
+
+    fun threshold(context: Context): Int =
+        kr.phishguard.app.guard.GuardPolicy.clampThreshold(
+            prefs(context).getInt("threshold", kr.phishguard.app.guard.GuardPolicy.THRESHOLD_DEFAULT),
+        )
+
+    fun setThreshold(context: Context, v: Int) {
+        prefs(context).edit().putInt("threshold", kr.phishguard.app.guard.GuardPolicy.clampThreshold(v)).apply()
+    }
+
+    /** 마지막으로 본 점수 (설치가 바뀌면 새 앱으로 봄) */
+    fun lastScore(context: Context, pkg: String, firstInstallTime: Long): Int? {
+        val v = prefs(context).getString("score:$pkg", null) ?: return null
+        val parts = v.split('|')
+        if (parts.size != 2 || parts[1].toLongOrNull() != firstInstallTime) return null
+        return parts[0].toIntOrNull()
+    }
+
+    fun setLastScore(context: Context, pkg: String, firstInstallTime: Long, score: Int) {
+        prefs(context).edit().putString("score:$pkg", "$score|$firstInstallTime").apply()
+    }
+
+    /** 부모 폰: 자녀 답을 기다리는 결정 요청 (requestId → pkg|label|deadline|firstInstallTime) */
+    data class OpenDecision(val requestId: String, val pkg: String, val label: String, val deadline: Long, val firstInstallTime: Long)
+
+    fun decisionRequested(context: Context, pkg: String, firstInstallTime: Long): Boolean =
+        prefs(context).getBoolean("dreq:$pkg|$firstInstallTime", false)
+
+    /** 열린 결정 요청 저장. 같은 requestId가 이미 있으면 처음 마감 시각을 유지 */
+    fun addOpenDecision(context: Context, d: OpenDecision, gen: Int) {
+        synchronized(lock) {
+            if (gen != generation) return
+            if (prefs(context).contains("open:${d.requestId}")) return
+            prefs(context).edit()
+                .putString("open:${d.requestId}", listOf(d.pkg, d.label.replace("|", " "), d.deadline, d.firstInstallTime).joinToString("|"))
+                .apply()
+        }
+    }
+
+    fun openDecisions(context: Context): List<OpenDecision> =
+        prefs(context).all.filterKeys { it.startsWith("open:") }.mapNotNull { (k, v) ->
+            val parts = (v as? String)?.split('|') ?: return@mapNotNull null
+            if (parts.size != 4) return@mapNotNull null
+            OpenDecision(k.removePrefix("open:"), parts[0], parts[1], parts[2].toLongOrNull() ?: 0, parts[3].toLongOrNull() ?: 0)
+        }
+
+    /** 열린 결정 요청을 꺼내며 닫는다. 이미 닫혔으면(다른 경로가 먼저 처리) null — 같은 결정은 한 번만 처리된다 */
+    fun claimOpenDecision(context: Context, requestId: String): OpenDecision? {
+        synchronized(lock) {
+            val d = openDecisions(context).firstOrNull { it.requestId == requestId } ?: return null
+            prefs(context).edit().remove("open:$requestId").apply()
+            return d
+        }
+    }
+
+    /** 결정 요청을 자녀에게 보냈음 (설치 한 번당 한 번) */
+    fun markDecisionSent(context: Context, pkg: String, firstInstallTime: Long, gen: Int) {
+        synchronized(lock) {
+            if (gen == generation) prefs(context).edit().putBoolean("dreq:$pkg|$firstInstallTime", true).apply()
+        }
     }
 
     // ---- 서버에 못 알린 연결 끊기 (다음에 다시 보냄) ----

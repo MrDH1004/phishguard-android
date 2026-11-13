@@ -1,15 +1,19 @@
 package kr.phishguard.app.scan
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kr.phishguard.app.history.HistoryTracker
@@ -161,6 +165,24 @@ object ScanRepository {
             pm.getApplicationInfo(pkg, 0)
         }
 
+    private class A11yFacts(val watched: Set<String>, val canReadAndGesture: Boolean)
+
+    /** API 30+ 설치 요청자, API 33+ 스토어 신고 여부. 낮은 API나 실패 시 (null, false) */
+    private fun installChainOf(pm: PackageManager, pkg: String): Pair<String?, Boolean> {
+        if (Build.VERSION.SDK_INT < 30) return null to false
+        return try {
+            val info = pm.getInstallSourceInfo(pkg)
+            val store = Build.VERSION.SDK_INT >= 33 && info.packageSource == PackageInstaller.PACKAGE_SOURCE_STORE
+            info.initiatingPackageName to store
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "install source lookup failed: $pkg", e)
+            null to false
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "install source lookup failed: $pkg", e)
+            null to false
+        }
+    }
+
     private class ScanEnv(
         val launcherPackages: Set<String>,
         val activeAdmins: Set<String>,
@@ -173,6 +195,10 @@ object ScanRepository {
         val unknownInstallTimes: Map<String, Long>,
         /** 사용 정보 접근 권한이 없으면 null */
         val usage: Map<Int, UidUsage>?,
+        /** 활성 접근성 서비스의 패키지 → 감시 대상·능력 */
+        val a11yServices: Map<String, A11yFacts>,
+        /** NEW_OUTGOING_CALL 방송을 받는 리시버를 선언한 패키지 */
+        val outgoingCallReceivers: Set<String>,
     ) {
         companion object {
             fun create(
@@ -213,7 +239,47 @@ object ScanRepository {
                     systemSigners = systemSigners,
                     unknownInstallTimes = unknownInstallTimes,
                     usage = usage,
+                    a11yServices = a11yServicesOf(context),
+                    outgoingCallReceivers = outgoingCallReceiversOf(pm),
                 )
+            }
+
+            /**
+             * 활성 접근성 서비스 목록. getEnabledAccessibilityServiceList(FEEDBACK_ALL_MASK)는 권한 없이 부를 수 있다.
+             * packageNames가 null이면 "모든 앱"이라 감시 대상 집합에 넣지 않는다.
+             */
+            private fun a11yServicesOf(context: Context): Map<String, A11yFacts> = try {
+                val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+                val list = am?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).orEmpty()
+                val readAndGesture = AccessibilityServiceInfo.CAPABILITY_CAN_RETRIEVE_WINDOW_CONTENT or
+                    AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES
+                val out = HashMap<String, A11yFacts>()
+                list.forEach { info ->
+                    val pkg = info.resolveInfo?.serviceInfo?.packageName ?: return@forEach
+                    val prev = out[pkg] ?: A11yFacts(emptySet(), false)
+                    out[pkg] = A11yFacts(
+                        watched = prev.watched + info.packageNames.orEmpty().toSet(),
+                        canReadAndGesture = prev.canReadAndGesture || (info.capabilities and readAndGesture) == readAndGesture,
+                    )
+                }
+                out
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "accessibility service list failed", e)
+                emptyMap()
+            }
+
+            @Suppress("DEPRECATION") // ACTION_NEW_OUTGOING_CALL: API 29에서 폐기됐지만 악성앱이 여전히 선언한다
+            private fun outgoingCallReceiversOf(pm: PackageManager): Set<String> = try {
+                val intent = Intent(Intent.ACTION_NEW_OUTGOING_CALL)
+                val list = if (Build.VERSION.SDK_INT >= 33) {
+                    pm.queryBroadcastReceivers(intent, PackageManager.ResolveInfoFlags.of(0L))
+                } else {
+                    pm.queryBroadcastReceivers(intent, 0)
+                }
+                list.mapNotNull { it.activityInfo?.packageName }.toSet()
+            } catch (e: RuntimeException) {
+                Log.w(TAG, "outgoing call receiver query failed", e)
+                emptySet()
             }
 
             private fun secureString(context: Context, key: String): String? = try {
@@ -331,11 +397,18 @@ object ScanRepository {
         val notificationEnabled = PermissionMap.settingListContains(env.notificationSetting, pkg)
         val adminActive = pkg in env.activeAdmins
 
+        var fgsMediaProjection = false
+        var fgsPhoneCall = false
         // 서비스/리시버 선언으로 접근성·기기관리자·알림접근 분류 추가
         try {
             val full = getPackageInfoCompat(pm, pkg, PackageManager.GET_SERVICES or PackageManager.GET_RECEIVERS)
             val declared = LinkedHashMap<String, Boolean>()
             full.services?.forEach { s ->
+                if (Build.VERSION.SDK_INT >= 29) {
+                    val type = s.foregroundServiceType
+                    if ((type and ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION) != 0) fgsMediaProjection = true
+                    if ((type and ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL) != 0) fgsPhoneCall = true
+                }
                 when (s.permission) {
                     "android.permission.BIND_ACCESSIBILITY_SERVICE" ->
                         declared["android.permission.BIND_ACCESSIBILITY_SERVICE"] = accessibilityEnabled
@@ -376,7 +449,10 @@ object ScanRepository {
             0
         }
         val uidUsage = env.usage?.let { u -> u[uid] ?: UidUsage(uid, 0, 0, 0, 0) }
-        val input = RiskInput(
+        val (initiating, sourceStore) = installChainOf(pm, pkg)
+        val a11y = env.a11yServices[pkg]
+        val requestedSet = requested.toSet()
+        val baseInput = RiskInput(
             packageName = pkg,
             label = label,
             installSource = source,
@@ -400,7 +476,29 @@ object ScanRepository {
             nearbyUnknownInstalls = nearbyUnknown,
             uploadBytes30d = uidUsage?.totalTx,
             downloadBytes30d = uidUsage?.totalRx,
+            a11yWatchedPackages = a11y?.watched ?: emptySet(),
+            a11yCanReadAndGesture = a11y?.canReadAndGesture ?: false,
+            installerPackage = installer,
+            initiatingPackage = initiating,
+            // env.unknownInstallTimes = 시스템 앱·이 앱을 뺀 외부 설치 앱 (앱 하나 다시 조사할 때는 마지막 전체 검사 값)
+            initiatorIsSideloaded = initiating != null && initiating != pkg && initiating in env.unknownInstallTimes,
+            packageSourceStore = sourceStore,
+            requestsProcessOutgoingCalls = "android.permission.PROCESS_OUTGOING_CALLS" in requestedSet,
+            handlesNewOutgoingCall = pkg in env.outgoingCallReceivers,
+            writeCallLogGranted = perms.any { it.name == "android.permission.WRITE_CALL_LOG" && it.granted },
+            requestsDeletePackages = "android.permission.REQUEST_DELETE_PACKAGES" in requestedSet,
+            requestsSmsRead = "android.permission.READ_SMS" in requestedSet ||
+                "android.permission.RECEIVE_SMS" in requestedSet,
+            declaresNotificationListener = perms.any { it.category == PermCategory.NOTIFICATION_LISTENER },
+            fgsMediaProjection = fgsMediaProjection,
+            fgsPhoneCall = fgsPhoneCall,
         )
+        // APK 파일 구조 검사는 IO 비용이 있으므로 신뢰할 수 없는 출처에만 (시간·항목 수 상한은 ApkInspector)
+        val input = if (RuleContext(baseInput, now).untrustedOrigin) {
+            baseInput.copy(apkStructure = ApkInspector.inspect(ai?.sourceDir) { msg, e -> Log.w(TAG, msg, e) })
+        } else {
+            baseInput
+        }
         val risk = RiskScorer.score(input, now)
 
         return AppInfo(

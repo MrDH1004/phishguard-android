@@ -6,6 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.net.VpnService
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.mutableIntStateOf
+import kr.phishguard.app.guard.GuardPolicy
+import kr.phishguard.app.guard.LockOverlay
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -76,6 +83,7 @@ private fun errorMessage(e: Exception): String = when (e) {
         "pin_not_found" -> "PIN이 맞지 않거나 10분이 지나 만료됐습니다. 자녀 폰의 PIN을 다시 확인하세요."
         "rate_limited" -> "PIN을 여러 번 틀렸습니다. 1시간 뒤에 다시 시도하세요."
         "gone" -> "PIN이 만료됐습니다. 자녀 폰에서 새 PIN을 만들어 다시 입력하세요."
+        "rejected" -> "자녀 폰이 이 연결을 거절했습니다. 자녀 폰에서 새 PIN을 받아 다시 입력하세요."
         else -> e.message ?: "서버 오류"
     }
     else -> "인터넷에 연결할 수 없습니다. Wi-Fi나 모바일 데이터를 켜고 다시 시도하세요."
@@ -187,6 +195,22 @@ private fun ChildWaiting(s: FamilyState) {
             now = System.currentTimeMillis(); delay(1000)
         }
     }
+    val joinName = FamilyPolicy.pendingJoinName(s.events, s.paired)
+    if (joinName != null) {
+        JoinRequestCard(joinName, onAnswer = { approve, done ->
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) { FamilyController.answerJoin(context, approve) }; error = null
+                    done(true)
+                } catch (e: IOException) {
+                    Log.w("PG-Family", "answer failed", e); error = errorMessage(e)
+                    done(false)
+                }
+            }
+        })
+        (error ?: s.lastError)?.let { ErrorText(it) }
+        return
+    }
     val left = ((s.pinExpiresAt - now) / 1000).coerceAtLeast(0)
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -225,10 +249,25 @@ private fun ChildLinked(s: FamilyState) {
         FamilyController.ensureServices(context)
         withContext(Dispatchers.IO) { if (!FamilyStore.state.value.live) FamilyController.pollChild(context) }
         while (true) {
-            now = System.currentTimeMillis(); delay(30_000)
+            now = System.currentTimeMillis(); delay(5_000)
         }
     }
     val who = s.otherName ?: "가족 폰"
+    var cmdError by remember { mutableStateOf<String?>(null) }
+    FamilyPolicy.pendingDecisions(s.events).forEach { d ->
+        DecisionCard(d, who, now, onChoose = { type, done ->
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) { FamilyController.sendCommand(context, type, d) }; cmdError = null
+                    done(true)
+                } catch (e: IOException) {
+                    Log.w("PG-Family", "command failed", e); cmdError = errorMessage(e)
+                    done(false) // 다시 누를 수 있게
+                }
+            }
+        })
+    }
+    cmdError?.let { ErrorText(it) }
     val silent = s.lastHeartbeat > 0 && now - s.lastHeartbeat > 24L * 60 * 60 * 1000
     Card(
         colors = CardDefaults.cardColors(
@@ -279,6 +318,22 @@ private fun ChildLinked(s: FamilyState) {
             FamilyEvent.TYPE_PAIRED -> "연결됨"
             FamilyEvent.TYPE_PARENT_SILENT -> "하루 넘게 신호 없음"
             FamilyEvent.TYPE_PARENT_BACK -> "신호 다시 들어옴"
+            FamilyEvent.TYPE_DECISION -> e.apps.firstOrNull()?.let { "결정 요청: ${it.label} (${it.riskScore}점)" }
+            FamilyEvent.TYPE_COMMAND_SENT -> when (e.data.optString("type")) {
+                "lock" -> "보냄: 1시간 잠금 (${e.data.optString("label")})"
+                "block" -> "보냄: 인터넷만 차단 (${e.data.optString("label")})"
+                "ignore" -> "보냄: 무시 (${e.data.optString("label")})"
+                else -> null
+            }
+            FamilyEvent.TYPE_COMMAND_RESULT -> {
+                val ok = if (e.data.optBoolean("ok")) "완료" else "일부 실패"
+                when (e.data.optString("type")) {
+                    "lock" -> "잠금 $ok: ${e.data.optString("message")}"
+                    "block" -> "차단 $ok: ${e.data.optString("message")}"
+                    "auto_block" -> "답이 없어 자동 차단: ${e.data.optString("message")}"
+                    else -> null
+                }
+            }
             else -> null
         } ?: return@forEach
         Text("${fmt(e.ts)}  $line", style = MaterialTheme.typography.bodySmall)
@@ -293,6 +348,17 @@ private fun ParentLinked(s: FamilyState) {
     var busy by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { FamilyController.ensureServices(context) }
     val who = s.otherName ?: "가족"
+    if (!s.paired) {
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("${who}의 승인을 기다리는 중", style = MaterialTheme.typography.titleMedium)
+                Text("자녀 폰 화면에 뜬 '연결 요청'에서 승인을 누르면 연결이 끝납니다. 30분이 지나면 다시 PIN을 받아야 합니다.")
+            }
+        }
+        s.lastError?.let { ErrorText(it) }
+        UnlinkButton(onConfirm = { scope.launch { withContext(Dispatchers.IO) { FamilyController.unlink(context) } } })
+        return
+    }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("${who}에게 연결됨", style = MaterialTheme.typography.titleMedium)
@@ -309,6 +375,7 @@ private fun ParentLinked(s: FamilyState) {
             busy = false
         }
     }) { Text(if (busy) "보내는 중…" else "지금 상태 보내기") }
+    GuardSettings(who)
     Text("모르는 사람이 '연결해 주겠다'며 PIN을 불러 주면 절대 입력하지 마세요. 연결 상대는 위에 보이는 이름 한 명뿐입니다.", style = MaterialTheme.typography.bodySmall)
     UnlinkButton(onConfirm = { scope.launch { withContext(Dispatchers.IO) { FamilyController.unlink(context) } } })
 }
@@ -355,4 +422,103 @@ private fun isIgnoringBattery(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < 23) return true
     val pm = context.getSystemService(PowerManager::class.java) ?: return true
     return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+@Composable
+private fun JoinRequestCard(parentName: String, onAnswer: (approve: Boolean, done: (ok: Boolean) -> Unit) -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("연결 요청", style = MaterialTheme.typography.titleMedium)
+            Text("'$parentName' 폰이 PIN을 입력했습니다.", fontWeight = FontWeight.Bold)
+            Text("내가 PIN을 알려 준 부모님 폰이 맞으면 승인하세요. 모르는 이름이면 거절하세요. 승인하면 이 폰에서 그 폰을 잠그거나 인터넷을 끊을 수 있습니다.")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(enabled = !busy, onClick = { busy = true; onAnswer(true) { ok -> if (!ok) busy = false } }) { Text("승인") }
+                OutlinedButton(enabled = !busy, onClick = { busy = true; onAnswer(false) { ok -> if (!ok) busy = false } }) { Text("거절") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DecisionCard(d: PendingDecision, who: String, now: Long, onChoose: (type: String, done: (ok: Boolean) -> Unit) -> Unit) {
+    var busy by remember(d.requestId) { mutableStateOf(false) }
+    val left = d.autoBlockAt - now
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("⚠ 결정 필요: $who", style = MaterialTheme.typography.titleMedium)
+            Text("${d.app.label} · 위험 ${d.app.riskScore}점", fontWeight = FontWeight.Bold)
+            if (d.reason == "surge") Text("점수가 ${d.previousScore}점에서 ${d.app.riskScore}점으로 급하게 올랐습니다.")
+            d.app.reasons.forEach { Text("· $it", style = MaterialTheme.typography.bodySmall) }
+            Text(
+                if (left > 0) {
+                    "${left / 60_000 + 1}분 안에 고르지 않으면 이 앱의 인터넷만 자동으로 끊습니다."
+                } else {
+                    "답이 없어 곧 인터넷만 자동으로 끊습니다."
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+            val choose = { type: String -> busy = true; onChoose(type) { ok -> if (!ok) busy = false } }
+            Button(enabled = !busy, onClick = { choose("lock") }, modifier = Modifier.fillMaxWidth()) {
+                Text("1시간 잠금 (차단 + 증거 저장 + 잠금)")
+            }
+            OutlinedButton(enabled = !busy, onClick = { choose("block") }, modifier = Modifier.fillMaxWidth()) {
+                Text("인터넷만 차단 (이 앱 + 텔레그램·LINE)")
+            }
+            TextButton(enabled = !busy, onClick = { choose("ignore") }) { Text("괜찮음 (무시)") }
+        }
+    }
+}
+
+/** 부모 폰: 결정 요청 기준과 잠금·차단에 필요한 권한 */
+@Composable
+private fun GuardSettings(who: String) {
+    val context = LocalContext.current
+    var threshold by remember { mutableIntStateOf(FamilyStore.threshold(context)) }
+    var canDraw by remember { mutableStateOf(LockOverlay.canDraw(context)) }
+    var vpnReady by remember { mutableStateOf(VpnService.prepare(context) == null) }
+    val vpnLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        vpnReady = VpnService.prepare(context) == null
+    }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            canDraw = LockOverlay.canDraw(context)
+            vpnReady = VpnService.prepare(context) == null
+        }
+    }
+    SectionTitle("위험할 때 ${who}에게 묻기")
+    Text("위험 점수가 아래 기준 이상이거나, 한 번에 ${GuardPolicy.SURGE_DELTA}점 넘게 오르면 ${who}에게 '잠금 / 인터넷만 차단 / 무시'를 묻습니다. 30분 안에 답이 없으면 인터넷만 자동으로 끊습니다.")
+    Text("기준: ${threshold}점", fontWeight = FontWeight.Bold)
+    Slider(
+        value = threshold.toFloat(),
+        onValueChange = { threshold = GuardPolicy.clampThreshold(it.toInt()) },
+        onValueChangeFinished = { FamilyStore.setThreshold(context, threshold) },
+        valueRange = GuardPolicy.THRESHOLD_MIN.toFloat()..GuardPolicy.THRESHOLD_MAX.toFloat(),
+        steps = (GuardPolicy.THRESHOLD_MAX - GuardPolicy.THRESHOLD_MIN) / GuardPolicy.THRESHOLD_STEP - 1,
+    )
+    if (!canDraw) {
+        Text("잠금 화면을 띄우려면 '다른 앱 위에 그리기'를 허용해야 합니다.", color = MaterialTheme.colorScheme.error)
+        OutlinedButton(onClick = {
+            try {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            } catch (e: ActivityNotFoundException) {
+                Log.w("PG-Family", "overlay settings not found", e)
+            }
+        }) { Text("다른 앱 위에 그리기 허용") }
+    } else {
+        Text("잠금 화면: 준비됨", style = MaterialTheme.typography.bodySmall)
+    }
+    if (!vpnReady) {
+        Text("인터넷을 끊으려면 처음 한 번 'VPN 연결 요청'에 확인을 눌러야 합니다.", color = MaterialTheme.colorScheme.error)
+        OutlinedButton(onClick = {
+            val i = VpnService.prepare(context)
+            if (i == null) vpnReady = true else vpnLauncher.launch(i)
+        }) { Text("인터넷 차단 준비 (VPN 허용)") }
+    } else {
+        Text("인터넷 차단: 준비됨", style = MaterialTheme.typography.bodySmall)
+    }
 }

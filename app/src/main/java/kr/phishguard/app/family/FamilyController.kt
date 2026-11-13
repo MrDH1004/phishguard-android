@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import kr.phishguard.app.guard.GuardController
 import kr.phishguard.app.scan.ScanRepository
 import java.io.IOException
 
@@ -31,17 +32,60 @@ object FamilyController {
         }
     }
 
-    /** 부모: PIN 입력해 연결, 바로 지금 위험 앱 목록을 보냄 */
+    /** 부모: PIN 입력. 자녀 폰이 승인하면 상시 서비스가 실시간으로 받아 첫 목록을 보낸다 */
     fun joinAsParent(context: Context, pin: String, deviceName: String) {
         val r = FamilyApi.join(pin, deviceName)
         FamilyStore.startParent(context, r.token, r.childName)
         ensureServices(context)
-        // 연결은 끝났다. 첫 목록 전송이 실패해도 상시 서비스·주기 작업이 다시 보낸다.
         try {
             if (ScanRepository.apps.value.isEmpty()) ScanRepository.scan(context)
-            FamilyReporter.sync(context)
         } catch (e: SecurityException) {
             Log.e(TAG, "연결 직후 검사 권한 오류", e)
+        }
+    }
+
+    /** 자녀: 부모 폰의 연결 요청 승인/거절. 거절하면 새 PIN을 받아 둔다 */
+    fun answerJoin(context: Context, approve: Boolean) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            FamilyApi.approve(token, approve)
+            if (!approve) refreshPin(context)
+            pollChild(context)
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
+    /** 자녀: 결정 요청에 답함 (lock / block / ignore) */
+    fun sendCommand(context: Context, type: String, d: PendingDecision) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            FamilyApi.command(token, type, d.requestId, d.app.packageName, d.app.label)
+            pollChild(context)
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
+    /** 부모: 실시간 연결이 끊겨 있을 때 주기 작업에서 승인·명령을 받아 처리 */
+    fun pollParent(context: Context) {
+        val token = FamilyStore.token(context) ?: return
+        val gen = FamilyStore.generation()
+        try {
+            val j = FamilyApi.state(token, FamilyStore.lastCommandId(context))
+            if (j.optBoolean("paired") && !FamilyStore.state.value.paired) {
+                FamilyStore.setApproved(context, gen)
+                FamilyReporter.sync(context)
+            }
+            val cmds = j.optJSONArray("commands")
+            if (cmds != null) {
+                (0 until cmds.length()).mapNotNull { cmds.optJSONObject(it) }.sortedBy { it.optLong("id") }
+                    .forEach { GuardController.handleCommand(context, it) }
+            }
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else FamilyStore.setError(e.message)
+        } catch (e: IOException) {
+            Log.w(TAG, "부모 상태 확인 실패", e)
         }
     }
 
@@ -121,7 +165,11 @@ object FamilyController {
         flushPendingUnlinks(context)
         val s = FamilyStore.state.value
         when (s.role) {
-            FamilyRole.PARENT -> FamilyReporter.sync(context)
+            FamilyRole.PARENT -> {
+                if (!ParentGuardService.running) pollParent(context)
+                FamilyReporter.sync(context)
+                GuardController.checkDeadlines(context)
+            }
             FamilyRole.CHILD -> if (!s.live) pollChild(context)
             FamilyRole.NONE -> Unit
         }

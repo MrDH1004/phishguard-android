@@ -23,6 +23,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kr.phishguard.app.guard.GuardController
+import kr.phishguard.app.guard.LockOverlay
 import kr.phishguard.app.scan.ScanRepository
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -33,6 +35,11 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+
+/** 예상 못 한 예외로 상시 서비스 프로세스가 죽지 않게 기록만 남긴다 (리뷰 M2) */
+private fun crashGuard(tag: String) = kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
+    Log.e(tag, "처리 중 예외", e)
+}
 
 /** 포그라운드 시작. 백그라운드라 막히면 사용자에게 앱을 열어 달라고 알리고 false */
 private fun Service.startForegroundCompat(id: Int, title: String, text: String, role: FamilyRole): Boolean {
@@ -57,13 +64,230 @@ private fun Service.startForegroundCompat(id: Int, title: String, text: String, 
 }
 
 /**
- * 부모 폰 상시 서비스: 앱 설치·업데이트를 즉시 감지해 자녀 폰에 알리고, 3시간마다 생존 신호를 보낸다.
+ * 서버와의 실시간 연결 (자녀: 사건 수신, 부모: 승인·명령 수신). 두 서비스가 같이 쓴다.
+ * 끊기면 2초부터 최대 60초 간격으로 다시 연결하고, 다시 연결할 때 [sinceId] 이후를 받아 온다.
+ */
+private class FamilySocket(
+    private val context: Context,
+    private val scope: CoroutineScope,
+    private val tag: String,
+    private val sinceId: () -> Long,
+    private val onMessage: (JSONObject, Int) -> Unit,
+    /** 서버에서 연결이 없어짐 (끊김·만료·거절). rejected = 자녀가 연결 요청을 거절함 */
+    private val onGone: (rejected: Boolean) -> Unit,
+) {
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.SECONDS)
+        .build()
+
+    @Volatile
+    private var socket: WebSocket? = null
+
+    @Volatile
+    private var lastPong = 0L
+
+    @Volatile
+    private var stopped = false
+
+    @Volatile
+    private var wake: (() -> Unit)? = null
+    private var loopJob: Job? = null
+
+    @Volatile
+    var live = false
+        private set
+
+    fun start() {
+        if (loopJob == null) loopJob = scope.launch { loop() }
+    }
+
+    /** 망이 바뀜: 이전 소켓은 죽었을 수 있으니 바로 새로 연결 */
+    fun kick() {
+        socket?.cancel()
+        wake?.invoke()
+    }
+
+    fun stop() {
+        stopped = true
+        socket?.close(1000, null)
+        client.dispatcher.executorService.shutdown()
+    }
+
+    private suspend fun loop() {
+        var backoff = MIN_BACKOFF_MS
+        while (scope.isActive && !stopped) {
+            val token = FamilyStore.token(context) ?: return
+            val gen = FamilyStore.generation()
+            val closed = CompletableDeferred<Int>()
+            val req = Request.Builder()
+                .url(FamilyApi.wsUrl(sinceId()))
+                .header("authorization", "Bearer $token")
+                .build()
+            lastPong = System.currentTimeMillis()
+            val openedAt = System.currentTimeMillis()
+            if (stopped) return
+            val ws = try {
+                client.newWebSocket(req, Listener(closed, gen))
+            } catch (e: java.util.concurrent.RejectedExecutionException) {
+                Log.w(TAG, "$tag: 종료 중이라 연결하지 않음", e) // stop() 직후 (리뷰 L5)
+                return
+            }
+            socket = ws
+            // 연결 유지: 45초마다 ping, 100초 넘게 pong이 없으면 끊고 다시 연결
+            val pinger = scope.launch {
+                while (isActive) {
+                    delay(PING_MS)
+                    ws.send("ping")
+                    if (System.currentTimeMillis() - lastPong > PONG_TIMEOUT_MS) {
+                        Log.w(TAG, "$tag: pong 없음, 다시 연결")
+                        ws.cancel()
+                        break
+                    }
+                }
+            }
+            val code = closed.await()
+            pinger.cancel()
+            socket = null
+            setLive(false)
+            when (code) {
+                CODE_GONE -> {
+                    onGone(false)
+                    return
+                }
+                CODE_REJECTED -> {
+                    onGone(true)
+                    return
+                }
+                CODE_AUTH_FAILED -> {
+                    // 401이 서버의 "없는 연결"인지 확인한 뒤에만 지운다 (프록시·포털의 401일 수 있음)
+                    if (confirmGone(token)) {
+                        onGone(false)
+                        return
+                    }
+                }
+            }
+            // 30초 넘게 잘 붙어 있었으면 빠르게 재연결, 아니면 간격을 늘림 (붙자마자 끊기는 상황의 무한 반복 방지)
+            if (System.currentTimeMillis() - openedAt > STABLE_MS) backoff = MIN_BACKOFF_MS
+            val wakeSignal = CompletableDeferred<Unit>()
+            wake = { wakeSignal.complete(Unit) }
+            withTimeoutOrNull(backoff) { wakeSignal.await() }
+            wake = null
+            backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MS)
+        }
+    }
+
+    private fun setLive(v: Boolean) {
+        live = v
+        if (tag == "child") FamilyStore.setLive(v)
+    }
+
+    private fun confirmGone(token: String): Boolean = try {
+        FamilyApi.state(token, Long.MAX_VALUE / 2)
+        false
+    } catch (e: FamilyApiException) {
+        e.unlinked
+    } catch (e: IOException) {
+        Log.w(TAG, "연결 확인 실패", e)
+        false
+    }
+
+    private inner class Listener(private val closed: CompletableDeferred<Int>, private val gen: Int) : WebSocketListener() {
+        override fun onOpen(webSocket: WebSocket, response: Response) {
+            setLive(true)
+            FamilyStore.setError(null)
+        }
+
+        override fun onMessage(webSocket: WebSocket, text: String) {
+            lastPong = System.currentTimeMillis()
+            if (text == "pong") return
+            val o = try {
+                JSONObject(text)
+            } catch (e: JSONException) {
+                Log.w(TAG, "메시지 해석 실패", e)
+                return
+            }
+            onMessage(o, gen)
+        }
+
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            webSocket.close(1000, null)
+            // 4000 = 연결 끊김, 4001 = 대기 중 만료로 서버에서 지워짐, 4002 = 자녀가 연결 요청 거절
+            closed.complete(
+                when (code) {
+                    4000, 4001 -> CODE_GONE
+                    4002 -> CODE_REJECTED
+                    else -> code
+                },
+            )
+        }
+
+        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            val status = response?.code
+            Log.w(TAG, "$tag WebSocket 실패 (HTTP $status)", t)
+            if (status == 401) {
+                closed.complete(CODE_AUTH_FAILED)
+            } else {
+                FamilyStore.setError("서버에 연결하지 못했습니다. 다시 연결하는 중…")
+                closed.complete(-1)
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "PG-FamilySocket"
+        private const val PING_MS = 45_000L
+        private const val PONG_TIMEOUT_MS = 100_000L
+        private const val MIN_BACKOFF_MS = 2_000L
+        private const val MAX_BACKOFF_MS = 60_000L
+        private const val STABLE_MS = 30_000L
+        private const val CODE_GONE = -4000
+        private const val CODE_REJECTED = -4002
+        private const val CODE_AUTH_FAILED = -401
+    }
+}
+
+private fun Service.registerNetworkKick(onAvailable: () -> Unit): ConnectivityManager.NetworkCallback? {
+    val cm = getSystemService(ConnectivityManager::class.java) ?: return null
+    val cb = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = onAvailable()
+    }
+    return try {
+        cm.registerDefaultNetworkCallback(cb)
+        cb
+    } catch (e: RuntimeException) {
+        Log.w("PG-Family", "네트워크 콜백 등록 실패", e)
+        null
+    }
+}
+
+private fun Service.unregisterNetworkKick(cb: ConnectivityManager.NetworkCallback?) {
+    if (cb == null) return
+    try {
+        getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb)
+    } catch (e: IllegalArgumentException) {
+        Log.w("PG-Family", "네트워크 콜백 해제 실패", e)
+    }
+}
+
+/**
+ * 부모 폰 상시 서비스
+ *  - 앱 설치·업데이트를 즉시 감지해 자녀 폰에 알림 / 결정 요청
+ *  - 서버와 실시간 연결: 자녀 승인, 자녀 명령(잠금·차단·무시)을 바로 실행
+ *  - 3시간마다 생존 신호, 1분마다 "30분 무응답 → 인터넷 자동 차단" 확인
+ *  - 잠금 화면(1시간)을 이 프로세스에서 띄운다
  * 상시 알림으로 "가족에게 위험 알림을 보내는 중"임을 항상 보여준다 (몰래 감시하지 않음).
  */
 class ParentGuardService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + crashGuard("PG-ParentGuard"))
+
+    /** 승인·명령은 도착한 순서대로 하나씩 처리한다 (재연결 직후 state와 실시간 명령이 겹쳐도 순서 보장, 리뷰 M1) */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val commandDispatcher = Dispatchers.IO.limitedParallelism(1)
     private var receiver: BroadcastReceiver? = null
-    private var heartbeatJob: Job? = null
+    private var jobs: List<Job> = emptyList()
+    private var socket: FamilySocket? = null
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -74,11 +298,10 @@ class ParentGuardService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        val who = s.otherName ?: "가족"
-        if (!startForegroundCompat(NOTI_ID, "가족 보호 켜짐", "위험한 앱이 설치되면 ${who}에게 바로 알립니다", FamilyRole.PARENT)) {
-            return START_NOT_STICKY
-        }
+        if (!startForegroundCompat(NOTI_ID, "가족 보호 켜짐", ongoingText(), FamilyRole.PARENT)) return START_NOT_STICKY
         running = true
+        // 재부팅·앱 재시작 뒤 잠금이 남아 있으면 다시 덮는다
+        LockOverlay.restoreIfActive(applicationContext)
         if (receiver == null) {
             val r = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, i: Intent) {
@@ -96,20 +319,85 @@ class ParentGuardService : Service() {
             ContextCompat.registerReceiver(this, r, filter, ContextCompat.RECEIVER_EXPORTED)
             receiver = r
         }
-        if (heartbeatJob == null) {
-            heartbeatJob = scope.launch {
-                while (isActive) {
-                    try {
-                        if (ScanRepository.apps.value.isEmpty()) ScanRepository.scan(applicationContext)
-                        FamilyReporter.sync(applicationContext)
-                    } catch (e: SecurityException) {
-                        Log.e(TAG, "검사 권한 오류", e)
+        if (socket == null) {
+            socket = FamilySocket(
+                applicationContext, scope, "parent",
+                sinceId = { FamilyStore.lastCommandId(applicationContext) },
+                onMessage = ::handle,
+                onGone = { rejected ->
+                    if (rejected) {
+                        FamilyNotify.post(applicationContext, 3997, "가족 연결이 거절됐습니다", "자녀 폰에서 연결을 거절했습니다. 다시 연결하려면 새 PIN을 받아 입력하세요.")
                     }
-                    delay(HEARTBEAT_MS)
-                }
-            }
+                    FamilyController.onRemoteUnlinked(applicationContext)
+                },
+            ).also { it.start() }
+            netCallback = registerNetworkKick { socket?.kick() }
+        }
+        if (jobs.isEmpty()) {
+            jobs = listOf(
+                scope.launch {
+                    while (isActive) {
+                        try {
+                            if (ScanRepository.apps.value.isEmpty()) ScanRepository.scan(applicationContext)
+                            FamilyReporter.sync(applicationContext)
+                        } catch (e: SecurityException) {
+                            Log.e(TAG, "검사 권한 오류", e)
+                        }
+                        delay(HEARTBEAT_MS)
+                    }
+                },
+                scope.launch {
+                    while (isActive) {
+                        delay(DEADLINE_CHECK_MS)
+                        GuardController.checkDeadlines(applicationContext)
+                    }
+                },
+            )
         }
         return START_STICKY
+    }
+
+    private fun ongoingText(): String {
+        val s = FamilyStore.state.value
+        val who = s.otherName ?: "가족"
+        return if (s.paired) "위험한 앱이 설치되면 ${who}에게 바로 알립니다" else "${who}의 연결 승인을 기다리는 중"
+    }
+
+    /** 명령 실행(잠금·증거 저장)은 시간이 걸리므로 소켓 스레드가 아닌 서비스 범위에서 차례로 처리 */
+    private fun handle(o: JSONObject, gen: Int) {
+        scope.launch(commandDispatcher) { handleNow(o, gen) }
+    }
+
+    private fun handleNow(o: JSONObject, gen: Int) {
+        val ctx = applicationContext
+        when (o.optString("kind")) {
+            "state" -> {
+                val st = o.optJSONObject("state") ?: return
+                if (st.optBoolean("paired") && !FamilyStore.state.value.paired) onApproved(gen)
+                val cmds = st.optJSONArray("commands")
+                if (cmds != null) {
+                    (0 until cmds.length()).mapNotNull { cmds.optJSONObject(it) }.sortedBy { it.optLong("id") }
+                        .forEach { GuardController.handleCommand(ctx, it) }
+                }
+            }
+            "approved" -> onApproved(gen)
+            "command" -> o.optJSONObject("command")?.let { GuardController.handleCommand(ctx, it) }
+        }
+    }
+
+    private fun onApproved(gen: Int) {
+        if (FamilyStore.state.value.paired) return
+        FamilyStore.setApproved(applicationContext, gen)
+        startForegroundCompat(NOTI_ID, "가족 보호 켜짐", ongoingText(), FamilyRole.PARENT)
+        FamilyNotify.post(applicationContext, 3996, "가족 연결 완료", "이제 위험한 앱이 설치되면 ${FamilyStore.state.value.otherName ?: "가족"}에게 바로 알립니다.")
+        scope.launch {
+            try {
+                if (ScanRepository.apps.value.isEmpty()) ScanRepository.scan(applicationContext)
+                FamilyReporter.sync(applicationContext)
+            } catch (e: SecurityException) {
+                Log.e(TAG, "검사 권한 오류", e)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -122,6 +410,8 @@ class ParentGuardService : Service() {
             }
         }
         receiver = null
+        socket?.stop()
+        unregisterNetworkKick(netCallback)
         scope.cancel()
         super.onDestroy()
     }
@@ -130,6 +420,7 @@ class ParentGuardService : Service() {
         private const val TAG = "PG-ParentGuard"
         private const val NOTI_ID = 3101
         private const val HEARTBEAT_MS = 3L * 60 * 60 * 1000
+        private const val DEADLINE_CHECK_MS = 60_000L
 
         /** 실시간 설치 감지가 돌고 있는지 (생존 신호에 담아 자녀에게 알림) */
         @Volatile
@@ -139,29 +430,12 @@ class ParentGuardService : Service() {
 }
 
 /**
- * 자녀 폰 상시 서비스: 서버와 WebSocket을 유지해 부모 폰 알림을 거의 실시간으로 받는다.
- * 끊기면 2초부터 최대 60초 간격으로 다시 연결하고, 다시 연결할 때 놓친 사건을 받아 온다.
+ * 자녀 폰 상시 서비스: 서버와 WebSocket을 유지해 부모 폰 알림·결정 요청을 거의 실시간으로 받는다.
  */
 class ChildWatchService : Service() {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.SECONDS)
-        .build()
-
-    @Volatile
-    private var socket: WebSocket? = null
-
-    @Volatile
-    private var lastPong = 0L
-
-    @Volatile
-    private var stopped = false
-    private var loopJob: Job? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + crashGuard("PG-ChildWatch"))
+    private var socket: FamilySocket? = null
     private var netCallback: ConnectivityManager.NetworkCallback? = null
-
-    @Volatile
-    private var wake: (() -> Unit)? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -174,135 +448,24 @@ class ChildWatchService : Service() {
         }
         if (!startForegroundCompat(NOTI_ID, "가족 폰 지켜보기", ongoingText(), FamilyRole.CHILD)) return START_NOT_STICKY
         running = true
-        if (loopJob == null) loopJob = scope.launch { connectLoop() }
-        if (netCallback == null) {
-            val cm = getSystemService(ConnectivityManager::class.java)
-            val cb = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    // 망이 바뀌면 이전 소켓은 죽었을 수 있다 → 바로 새로 연결
-                    socket?.cancel()
-                    wake?.invoke()
-                }
-            }
-            try {
-                cm.registerDefaultNetworkCallback(cb)
-                netCallback = cb
-            } catch (e: RuntimeException) {
-                Log.w(TAG, "네트워크 콜백 등록 실패", e)
-            }
+        if (socket == null) {
+            socket = FamilySocket(
+                applicationContext, scope, "child",
+                sinceId = { FamilyStore.lastEventId() },
+                onMessage = ::handle,
+                onGone = { FamilyController.onRemoteUnlinked(applicationContext) },
+            ).also { it.start() }
+            netCallback = registerNetworkKick { socket?.kick() }
         }
         return START_STICKY
     }
 
     private fun ongoingText(): String {
         val s = FamilyStore.state.value
-        return if (s.paired) "${s.otherName ?: "가족 폰"}의 위험 알림을 받는 중" else "부모 폰에서 PIN 입력을 기다리는 중"
+        return if (s.paired) "${s.otherName ?: "가족 폰"}의 위험 알림을 받는 중" else "부모 폰의 연결을 기다리는 중"
     }
 
-    private suspend fun connectLoop() {
-        var backoff = MIN_BACKOFF_MS
-        while (scope.isActive && !stopped) {
-            val token = FamilyStore.token(this)
-            if (token == null || FamilyStore.state.value.role != FamilyRole.CHILD) {
-                stopSelf()
-                return
-            }
-            val gen = FamilyStore.generation()
-            val closed = CompletableDeferred<Int>()
-            val req = Request.Builder()
-                .url(FamilyApi.wsUrl(FamilyStore.lastEventId()))
-                .header("authorization", "Bearer $token")
-                .build()
-            lastPong = System.currentTimeMillis()
-            val openedAt = System.currentTimeMillis()
-            val ws = client.newWebSocket(req, Listener(closed, gen))
-            socket = ws
-            // 연결 유지: 45초마다 ping, 100초 넘게 pong이 없으면 끊고 다시 연결
-            val pinger = scope.launch {
-                while (isActive) {
-                    delay(PING_MS)
-                    ws.send("ping")
-                    if (System.currentTimeMillis() - lastPong > PONG_TIMEOUT_MS) {
-                        Log.w(TAG, "pong 없음: 다시 연결")
-                        ws.cancel()
-                        break
-                    }
-                }
-            }
-            val code = closed.await()
-            pinger.cancel()
-            socket = null
-            FamilyStore.setLive(false)
-            when (code) {
-                CODE_GONE -> {
-                    FamilyController.onRemoteUnlinked(applicationContext)
-                    return
-                }
-                CODE_AUTH_FAILED -> {
-                    // 401이 서버의 "없는 연결"인지 확인한 뒤에만 지운다 (프록시·포털의 401일 수 있음)
-                    if (confirmGone(token)) {
-                        FamilyController.onRemoteUnlinked(applicationContext)
-                        return
-                    }
-                }
-            }
-            // 30초 넘게 잘 붙어 있었으면 빠르게 재연결, 아니면 간격을 늘림 (붙자마자 끊기는 상황의 무한 반복 방지)
-            if (System.currentTimeMillis() - openedAt > STABLE_MS) backoff = MIN_BACKOFF_MS
-            val wakeSignal = CompletableDeferred<Unit>()
-            wake = { wakeSignal.complete(Unit) }
-            withTimeoutOrNull(backoff) { wakeSignal.await() }
-            wake = null
-            backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MS)
-        }
-    }
-
-    private fun confirmGone(token: String): Boolean = try {
-        FamilyApi.state(token, Long.MAX_VALUE / 2)
-        false
-    } catch (e: FamilyApiException) {
-        e.unlinked
-    } catch (e: IOException) {
-        Log.w(TAG, "연결 확인 실패", e)
-        false
-    }
-
-    private inner class Listener(private val closed: CompletableDeferred<Int>, private val gen: Int) : WebSocketListener() {
-        override fun onOpen(webSocket: WebSocket, response: Response) {
-            FamilyStore.setLive(true)
-            FamilyStore.setError(null)
-        }
-
-        override fun onMessage(webSocket: WebSocket, text: String) {
-            lastPong = System.currentTimeMillis()
-            if (text == "pong") return
-            handle(text, gen)
-        }
-
-        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-            webSocket.close(1000, null)
-            // 4000 = 연결 끊김, 4001 = PIN 대기 중 만료로 서버에서 지워짐
-            closed.complete(if (code == 4000 || code == 4001) CODE_GONE else code)
-        }
-
-        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            val status = response?.code
-            Log.w(TAG, "WebSocket 실패 (HTTP $status)", t)
-            if (status == 401) {
-                closed.complete(CODE_AUTH_FAILED)
-            } else {
-                FamilyStore.setError("서버에 연결하지 못했습니다. 다시 연결하는 중…")
-                closed.complete(-1)
-            }
-        }
-    }
-
-    private fun handle(text: String, gen: Int) {
-        val o = try {
-            JSONObject(text)
-        } catch (e: JSONException) {
-            Log.w(TAG, "메시지 해석 실패", e)
-            return
-        }
+    private fun handle(o: JSONObject, gen: Int) {
         val ctx = applicationContext
         val wasPaired = FamilyStore.state.value.paired
         when (o.optString("kind")) {
@@ -326,31 +489,15 @@ class ChildWatchService : Service() {
 
     override fun onDestroy() {
         running = false
-        stopped = true
-        socket?.close(1000, null)
-        netCallback?.let {
-            try {
-                getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it)
-            } catch (e: IllegalArgumentException) {
-                Log.w(TAG, "네트워크 콜백 해제 실패", e)
-            }
-        }
+        socket?.stop()
+        unregisterNetworkKick(netCallback)
         FamilyStore.setLive(false)
         scope.cancel()
-        client.dispatcher.executorService.shutdown()
         super.onDestroy()
     }
 
     companion object {
-        private const val TAG = "PG-ChildWatch"
         private const val NOTI_ID = 3102
-        private const val PING_MS = 45_000L
-        private const val PONG_TIMEOUT_MS = 100_000L
-        private const val MIN_BACKOFF_MS = 2_000L
-        private const val MAX_BACKOFF_MS = 60_000L
-        private const val STABLE_MS = 30_000L
-        private const val CODE_GONE = -4000
-        private const val CODE_AUTH_FAILED = -401
 
         @Volatile
         var running = false

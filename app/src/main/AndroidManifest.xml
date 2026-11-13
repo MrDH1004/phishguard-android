@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 가족 연결: 알림이 늦지 않게 배터리 최적화 제외 요청 (사용자가 직접 허용) -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 가족 연결: 자녀가 고른 1시간 잠금 화면 (사용자가 설정에서 직접 허용) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- 부팅 후 감시 작업 재예약 / 차단 복구 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 삭제 요청 / 업데이트 설치 -->

@@ -17,6 +17,7 @@ const PIN_USED_GRACE_MS = 5 * 60 * 1000; // 같은 부모가 응답을 못 받�
 const JOIN_FAIL_LIMIT_PER_SOURCE = 20; // 1시간당 (IPv4 주소 또는 IPv6 /64)
 const START_LIMIT_PER_SOURCE = 30; // 1시간당 가족 생성
 const UNPAIRED_FAMILY_TTL_MS = HOUR;
+const APPROVAL_TTL_MS = 30 * 60 * 1000; // 부모가 PIN을 넣은 뒤 자녀가 승인할 시간
 const SILENT_AFTER_MS = 24 * HOUR;
 const ALARM_EVERY_MS = HOUR;
 const MAX_EVENTS = 200;
@@ -184,13 +185,14 @@ async function route(request, env) {
     const joined = await familyStub(env, r.familyId).join(parentHash, parentName);
     if (!joined.ok) {
       if (joined.code === "gone") throw new HttpError(410, "gone", "PIN이 만료됐습니다. 자녀 폰에서 새 PIN을 만드세요");
+      if (joined.code === "rejected") throw new HttpError(403, "rejected", "자녀 폰이 이 연결을 거절했습니다");
       throw new HttpError(409, joined.code, "이미 다른 폰과 연결된 PIN입니다");
     }
     return json({ familyId: r.familyId, token: `${r.familyId}.${secret}`, childName: joined.childName });
   }
 
   // 그 외는 모두 토큰 필요 → 가족 DO로 전달 (본문은 여기서 다 읽어 DO 안에서 기다리지 않게 한다)
-  if (path === "/v1/state" || path === "/v1/events" || path === "/v1/family" || path === "/v1/ws") {
+  if (["/v1/state", "/v1/events", "/v1/family", "/v1/ws", "/v1/pair/approve", "/v1/commands"].includes(path)) {
     const t = parseToken(request);
     const fam = familyStub(env, t.familyId);
     const headers = new Headers(request.headers);
@@ -286,9 +288,10 @@ export class PinRegistry extends DurableObject {
 }
 
 // ---- 가족 하나 (자녀 1 + 부모 1) ----
-// 저장 키: meta, seq, ev:<12자리 seq> (사건마다 키 하나), gone (끊긴 뒤 되살아남 방지 표식)
+// 저장 키: meta, seq/ev:<seq> (자녀가 받는 사건), cseq/cmd:<seq> (부모가 받는 명령), gone (끊긴 뒤 되살아남 방지 표식)
 
 const evKey = (seq) => `ev:${String(seq).padStart(12, "0")}`;
+const cmdKey = (seq) => `cmd:${String(seq).padStart(12, "0")}`;
 
 export class Family extends DurableObject {
   constructor(ctx, env) {
@@ -309,7 +312,7 @@ export class Family extends DurableObject {
       meta: {
         childHash, childName, parentHash: null, parentName: null,
         createdAt: now, expiresAt: now + UNPAIRED_FAMILY_TTL_MS,
-        pairedAt: null, lastHeartbeat: null, heartbeat: null, silentNotified: false,
+        pairedAt: null, approved: false, lastHeartbeat: null, heartbeat: null, silentNotified: false,
       },
       seq: 0,
     });
@@ -319,7 +322,7 @@ export class Family extends DurableObject {
 
   async extendUnpaired(until) {
     const m = await this.meta();
-    if (!m || m.parentHash) return;
+    if (!m || m.approved) return;
     m.expiresAt = Math.max(m.expiresAt || 0, until);
     await this.ctx.storage.put("meta", m);
     await this.ctx.storage.setAlarm(m.expiresAt);
@@ -328,11 +331,12 @@ export class Family extends DurableObject {
   async auth(hash) {
     const m = await this.meta();
     if (!m) return { role: null };
-    if (safeEqual(hash, m.childHash)) return { role: "child", paired: !!m.parentHash };
-    if (m.parentHash && safeEqual(hash, m.parentHash)) return { role: "parent", paired: true };
+    if (safeEqual(hash, m.childHash)) return { role: "child", paired: !!m.approved };
+    if (m.parentHash && safeEqual(hash, m.parentHash)) return { role: "parent", paired: !!m.approved };
     return { role: null };
   }
 
+  /** 부모가 PIN을 입력함 → 자녀 승인 대기. 자녀가 승인해야 알림·명령이 오간다 */
   async join(parentHash, parentName) {
     const m = await this.meta();
     if (!m) return { ok: false, code: "gone" };
@@ -341,14 +345,18 @@ export class Family extends DurableObject {
       if (safeEqual(m.parentHash, parentHash)) return { ok: true, childName: m.childName };
       return { ok: false, code: "already_paired" };
     }
+    // 자녀가 거절한 폰은 같은 비밀값으로 다시 요청할 수 없다 (PIN 재시도 유예 시간 악용 방지)
+    if ((m.rejectedHashes || []).some((h) => safeEqual(h, parentHash))) return { ok: false, code: "rejected" };
     const now = Date.now();
     m.parentHash = parentHash;
     m.parentName = parentName;
-    m.pairedAt = now;
-    m.lastHeartbeat = now;
+    m.approved = false;
+    m.joinRequestedAt = now;
+    // 자녀가 승인할 시간을 준다
+    m.expiresAt = Math.max(m.expiresAt || 0, now + APPROVAL_TTL_MS);
     await this.ctx.storage.put("meta", m);
-    await this.addEvent("paired", { parentName });
-    await this.ctx.storage.setAlarm(now + ALARM_EVERY_MS);
+    await this.addEvent("join_request", { parentName });
+    await this.ctx.storage.setAlarm(m.expiresAt);
     return { ok: true, childName: m.childName };
   }
 
@@ -357,8 +365,17 @@ export class Family extends DurableObject {
     const ev = { id: seq, ts: Date.now(), type, data: data || {} };
     await this.ctx.storage.put({ seq, [evKey(seq)]: ev });
     if (seq > MAX_EVENTS) await this.ctx.storage.delete(evKey(seq - MAX_EVENTS));
-    this.broadcast({ kind: "event", event: ev });
+    this.send("child", { kind: "event", event: ev });
     return ev;
+  }
+
+  async addCommand(type, data) {
+    const seq = ((await this.ctx.storage.get("cseq")) || 0) + 1;
+    const cmd = { id: seq, ts: Date.now(), type, data: data || {} };
+    await this.ctx.storage.put({ cseq: seq, [cmdKey(seq)]: cmd });
+    if (seq > MAX_EVENTS) await this.ctx.storage.delete(cmdKey(seq - MAX_EVENTS));
+    this.send("parent", { kind: "command", command: cmd });
+    return cmd;
   }
 
   async eventsSince(sinceId) {
@@ -366,9 +383,14 @@ export class Family extends DurableObject {
     return [...list.values()];
   }
 
-  broadcast(msg) {
+  async commandsSince(sinceId) {
+    const list = await this.ctx.storage.list({ prefix: "cmd:", start: cmdKey(sinceId + 1) });
+    return [...list.values()];
+  }
+
+  send(tag, msg) {
     const text = JSON.stringify(msg);
-    for (const ws of this.ctx.getWebSockets("child")) {
+    for (const ws of this.ctx.getWebSockets(tag)) {
       try {
         ws.send(text);
       } catch (e) {
@@ -377,14 +399,19 @@ export class Family extends DurableObject {
     }
   }
 
-  closeAll(code, reason) {
-    for (const ws of this.ctx.getWebSockets()) {
+  closeTag(tag, code, reason) {
+    for (const ws of this.ctx.getWebSockets(tag)) {
       try {
         ws.close(code, reason);
       } catch (e) {
         console.warn("ws close failed", e);
       }
     }
+  }
+
+  closeAll(code, reason) {
+    this.closeTag("child", code, reason);
+    this.closeTag("parent", code, reason);
   }
 
   async wipe() {
@@ -394,16 +421,18 @@ export class Family extends DurableObject {
     await this.ctx.storage.put("gone", true);
   }
 
-  async stateFor(m, sinceId) {
-    return {
-      paired: !!m.parentHash,
+  async stateFor(m, role, sinceId) {
+    const base = {
+      paired: !!m.approved,
+      pendingJoin: !!m.parentHash && !m.approved,
       childName: m.childName,
       parentName: m.parentName,
       pairedAt: m.pairedAt,
-      lastHeartbeat: m.lastHeartbeat,
-      heartbeat: m.heartbeat,
-      events: await this.eventsSince(sinceId),
     };
+    if (role === "child") {
+      return { ...base, lastHeartbeat: m.lastHeartbeat, heartbeat: m.heartbeat, events: await this.eventsSince(sinceId) };
+    }
+    return { ...base, commands: m.approved ? await this.commandsSince(sinceId) : [] };
   }
 
   async fetch(request) {
@@ -425,54 +454,113 @@ export class Family extends DurableObject {
     const m = await this.meta();
     if (!m) throw new HttpError(401, "unknown_token", "연결이 끊겼거나 없는 연결입니다");
     const sinceId = Number(url.searchParams.get("since") || "0") || 0;
+    const now = Date.now();
 
+    // 실시간 연결: 자녀는 사건을, 부모는 명령을 받는다
     if (url.pathname === "/v1/ws") {
-      if (who.role !== "child") throw new HttpError(403, "forbidden", "자녀 폰만 연결할 수 있습니다");
       if ((request.headers.get("upgrade") || "").toLowerCase() !== "websocket") {
         throw new HttpError(426, "upgrade_required", "WebSocket 필요");
       }
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
-      this.ctx.acceptWebSocket(server, ["child"]);
-      server.send(JSON.stringify({ kind: "state", state: await this.stateFor(m, sinceId) }));
+      this.ctx.acceptWebSocket(server, [who.role]);
+      server.send(JSON.stringify({ kind: "state", state: await this.stateFor(m, who.role, sinceId) }));
       return new Response(null, { status: 101, webSocket: client });
     }
 
     if (url.pathname === "/v1/state" && request.method === "GET") {
-      return json({ role: who.role, ...(await this.stateFor(m, sinceId)) });
+      return json({ role: who.role, ...(await this.stateFor(m, who.role, sinceId)) });
+    }
+
+    // 자녀: 연결 요청 승인/거절
+    if (url.pathname === "/v1/pair/approve" && request.method === "POST") {
+      if (who.role !== "child") throw new HttpError(403, "forbidden", "자녀 폰만 승인할 수 있습니다");
+      if (!m.parentHash) throw new HttpError(409, "no_request", "연결 요청이 없습니다");
+      if (m.approved) return json({ ok: true, approved: true });
+      if (body.approve === true) {
+        m.approved = true;
+        m.pairedAt = now;
+        m.lastHeartbeat = now;
+        await this.ctx.storage.put("meta", m);
+        await this.addEvent("paired", { parentName: m.parentName });
+        this.send("parent", { kind: "approved", childName: m.childName });
+        await this.ctx.storage.setAlarm(now + ALARM_EVERY_MS);
+        return json({ ok: true, approved: true });
+      }
+      // 거절: 부모 연결 정보만 지우고 자녀는 새 PIN으로 다시 시작할 수 있다
+      this.closeTag("parent", 4002, "rejected");
+      m.rejectedHashes = [...(m.rejectedHashes || []), m.parentHash].slice(-20);
+      m.parentHash = null;
+      m.parentName = null;
+      m.approved = false;
+      await this.ctx.storage.put("meta", m);
+      await this.addEvent("join_rejected", {});
+      return json({ ok: true, approved: false });
+    }
+
+    // 자녀: 부모 폰에 명령 (잠금 / 차단 / 무시)
+    if (url.pathname === "/v1/commands" && request.method === "POST") {
+      if (who.role !== "child") throw new HttpError(403, "forbidden", "자녀 폰만 보낼 수 있습니다");
+      if (!m.approved) throw new HttpError(403, "not_approved", "연결이 끝나지 않았습니다");
+      const c = sanitizeCommand(body);
+      // 같은 결정 요청에는 첫 명령만 (재시도·중복 전송으로 잠금이 계속 연장되지 않게)
+      if (c.data.requestId) {
+        const prev = await this.ctx.storage.get(`cmdreq:${c.data.requestId}`);
+        if (prev) return json({ ok: true, id: prev, duplicate: true });
+      }
+      const cmd = await this.addCommand(c.type, c.data);
+      if (c.data.requestId) await this.ctx.storage.put(`cmdreq:${c.data.requestId}`, cmd.id);
+      await this.addEvent("command_sent", { commandId: cmd.id, type: c.type, ...c.data });
+      return json({ ok: true, id: cmd.id });
     }
 
     if (url.pathname === "/v1/events" && request.method === "POST") {
       if (who.role !== "parent") throw new HttpError(403, "forbidden", "부모 폰만 보낼 수 있습니다");
+      if (!m.approved) throw new HttpError(403, "not_approved", "자녀 폰의 승인을 기다리는 중입니다");
       const type = body.type;
-      const now = Date.now();
+      const handlers = {
+        heartbeat: null,
+        alert: sanitizeAlert,
+        snapshot: sanitizeSnapshot,
+        decision: sanitizeDecision,
+        command_result: sanitizeCommandResult,
+      };
+      if (!Object.prototype.hasOwnProperty.call(handlers, type)) throw new HttpError(400, "bad_type", "알 수 없는 종류");
+      const data = handlers[type] ? handlers[type](body.data) : null;
+      // 같은 결정 요청은 한 번만 (부모 폰이 응답을 못 받고 다시 보낸 경우)
+      if (type === "decision" && data.requestId) {
+        const prev = await this.ctx.storage.get(`decreq:${data.requestId}`);
+        if (prev) return json({ ok: true, id: prev, duplicate: true });
+      }
+      const wasSilent = m.silentNotified;
+      m.lastHeartbeat = now;
+      m.silentNotified = false;
+      if (type === "heartbeat") m.heartbeat = sanitizeHeartbeat(body.data);
+      await this.ctx.storage.put("meta", m);
+      if (wasSilent) await this.addEvent("parent_back", {});
       if (type === "heartbeat") {
-        const hb = sanitizeHeartbeat(body.data);
-        const wasSilent = m.silentNotified;
-        m.lastHeartbeat = now;
-        m.heartbeat = hb;
-        m.silentNotified = false;
-        await this.ctx.storage.put("meta", m);
-        if (wasSilent) await this.addEvent("parent_back", {});
-        this.broadcast({ kind: "heartbeat", lastHeartbeat: now, heartbeat: hb });
+        this.send("child", { kind: "heartbeat", lastHeartbeat: now, heartbeat: m.heartbeat });
         return json({ ok: true });
       }
-      if (type === "alert" || type === "snapshot") {
-        const data = type === "alert" ? sanitizeAlert(body.data) : sanitizeSnapshot(body.data);
-        const wasSilent = m.silentNotified;
-        m.lastHeartbeat = now;
-        m.silentNotified = false;
-        await this.ctx.storage.put("meta", m);
-        if (wasSilent) await this.addEvent("parent_back", {});
-        const ev = await this.addEvent(type, data);
-        return json({ ok: true, id: ev.id });
-      }
-      throw new HttpError(400, "bad_type", "알 수 없는 종류");
+      const ev = await this.addEvent(type, data);
+      if (type === "decision" && data.requestId) await this.ctx.storage.put(`decreq:${data.requestId}`, ev.id);
+      return json({ ok: true, id: ev.id });
     }
 
     if (url.pathname === "/v1/family" && request.method === "DELETE") {
-      // 어느 쪽이든 연결 끊기. 남은 쪽(자녀)에게 먼저 알린 뒤 모두 지운다.
-      this.broadcast({ kind: "event", event: { id: 0, ts: Date.now(), type: "unlinked", data: { by: who.role } } });
+      // 승인 전인 부모가 끊으면 자기 요청만 취소한다 (잘못 넣은 PIN으로 남의 가족을 지우지 않게)
+      if (who.role === "parent" && !m.approved) {
+        this.closeTag("parent", 4000, "unlinked");
+        m.parentHash = null;
+        m.parentName = null;
+        await this.ctx.storage.put("meta", m);
+        await this.addEvent("join_rejected", { by: "parent" });
+        return json({ ok: true });
+      }
+      // 어느 쪽이든 연결 끊기. 상대에게 먼저 알린 뒤 모두 지운다.
+      const msg = { kind: "event", event: { id: 0, ts: now, type: "unlinked", data: { by: who.role } } };
+      this.send("child", msg);
+      this.send("parent", msg);
       this.closeAll(4000, "unlinked");
       await this.wipe();
       return json({ ok: true });
@@ -485,7 +573,7 @@ export class Family extends DurableObject {
     const m = await this.meta();
     if (!m) return;
     const now = Date.now();
-    if (!m.parentHash) {
+    if (!m.approved) {
       const exp = m.expiresAt || m.createdAt + UNPAIRED_FAMILY_TTL_MS;
       if (now >= exp) {
         this.closeAll(4001, "expired");
@@ -504,7 +592,7 @@ export class Family extends DurableObject {
   }
 
   async webSocketMessage(ws, message) {
-    // 자녀 폰은 "ping" 외에 보낼 것이 없다 (ping은 자동 응답). 그 밖의 메시지는 무시.
+    // 기기는 "ping" 외에 보낼 것이 없다 (ping은 자동 응답). 그 밖의 메시지는 무시.
   }
 
   async webSocketClose(ws, code, reason, wasClean) {
@@ -544,6 +632,48 @@ function sanitizeAlert(d) {
 function sanitizeSnapshot(d) {
   const apps = Array.isArray(d && d.apps) ? d.apps.slice(0, 50).map(sanitizeApp).filter((a) => a && a.packageName) : [];
   return { apps, scannedAt: Number.isFinite(d && d.scannedAt) ? d.scannedAt : Date.now() };
+}
+
+const COMMANDS = new Set(["lock", "block", "ignore"]);
+
+function sanitizeCommand(b) {
+  const type = b && b.type;
+  if (!COMMANDS.has(type)) throw new HttpError(400, "bad_command", "알 수 없는 명령");
+  const d = b.data && typeof b.data === "object" ? b.data : {};
+  return {
+    type,
+    data: {
+      requestId: cleanText(d.requestId, 64),
+      packageName: cleanText(d.packageName, 200),
+      label: cleanText(d.label, 80),
+    },
+  };
+}
+
+function sanitizeDecision(d) {
+  const app = sanitizeApp(d && d.app);
+  if (!app || !app.packageName) throw new HttpError(400, "bad_decision", "앱 정보가 없습니다");
+  return {
+    requestId: cleanText(d.requestId, 64),
+    reason: d.reason === "surge" ? "surge" : "score",
+    previousScore: Number.isFinite(d.previousScore) ? Math.max(0, Math.min(9999, Math.round(d.previousScore))) : 0,
+    autoBlockAt: Number.isFinite(d.autoBlockAt) ? d.autoBlockAt : 0,
+    app,
+  };
+}
+
+function sanitizeCommandResult(d) {
+  const o = d && typeof d === "object" ? d : {};
+  return {
+    commandId: Number.isFinite(o.commandId) ? o.commandId : 0,
+    requestId: cleanText(o.requestId, 64),
+    type: COMMANDS.has(o.type) || o.type === "auto_block" ? o.type : "unknown",
+    ok: o.ok === true,
+    message: cleanText(o.message, 200),
+    packageName: cleanText(o.packageName, 200),
+    label: cleanText(o.label, 80),
+    lockUntil: Number.isFinite(o.lockUntil) ? o.lockUntil : 0,
+  };
 }
 
 function sanitizeHeartbeat(d) {

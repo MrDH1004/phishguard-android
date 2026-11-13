@@ -34,6 +34,36 @@ data class RiskInput(
     val uploadBytes30d: Long? = null,
     /** 최근 30일 다운로드 바이트. 사용 정보 접근 권한이 없으면 null */
     val downloadBytes30d: Long? = null,
+    /** 활성 접근성 서비스가 packageNames로 콕 집어 지켜보는 앱들 (null=모든 앱이면 빈 집합) */
+    val a11yWatchedPackages: Set<String> = emptySet(),
+    /** 활성 접근성 서비스가 화면 내용 읽기 + 제스처(대신 누르기) 능력을 함께 가짐 */
+    val a11yCanReadAndGesture: Boolean = false,
+    /** 설치자 기록(installer of record) 패키지 */
+    val installerPackage: String? = null,
+    /** 실제로 설치를 요청한 패키지 (API 30+ InstallSourceInfo.initiatingPackageName) */
+    val initiatingPackage: String? = null,
+    /** 설치를 요청한 앱이 그 자체로 외부 설치(APK 직접 설치)된 일반 앱임 */
+    val initiatorIsSideloaded: Boolean = false,
+    /** 설치자가 "스토어에서 받음"으로 신고함 (API 33+ PACKAGE_SOURCE_STORE) */
+    val packageSourceStore: Boolean = false,
+    /** PROCESS_OUTGOING_CALLS 권한을 요청함 */
+    val requestsProcessOutgoingCalls: Boolean = false,
+    /** NEW_OUTGOING_CALL 방송(전화 걸기)을 받는 리시버 선언 */
+    val handlesNewOutgoingCall: Boolean = false,
+    /** WRITE_CALL_LOG 허용됨 (CALL_LOG 분류와 별도로 쓰기 권한만 구분) */
+    val writeCallLogGranted: Boolean = false,
+    /** REQUEST_DELETE_PACKAGES 요청 (일반 권한이라 선언만으로 허용됨) */
+    val requestsDeletePackages: Boolean = false,
+    /** READ_SMS 또는 RECEIVE_SMS 요청 (허용 여부와 무관) */
+    val requestsSmsRead: Boolean = false,
+    /** 알림 접근 서비스 선언 (활성 여부와 무관) */
+    val declaresNotificationListener: Boolean = false,
+    /** 화면 녹화(mediaProjection) 포그라운드 서비스 선언 */
+    val fgsMediaProjection: Boolean = false,
+    /** 통화(phoneCall) 포그라운드 서비스 선언 */
+    val fgsPhoneCall: Boolean = false,
+    /** APK 구조 검사 결과. 검사 안 함(신뢰 출처·읽기 실패)이면 null */
+    val apkStructure: ApkStructure? = null,
 )
 
 /** 규칙 평가 시점의 입력 + 현재 시각 */
@@ -74,6 +104,7 @@ object RiskRules {
     const val ID_VENDOR_SIGNED = "vendor_signed"
     const val ID_KNOWN_THREAT = "known_threat"
     const val ID_FAKE_OFFICIAL = "fake_official_app"
+    const val ID_OFFICIAL_LABEL_SPOOF = "official_label_spoof"
 
     /** 사칭에 자주 쓰이는 이름 키워드 (라벨은 대소문자 무시, 패키지명은 영문 키워드만 비교) */
     val IMPERSONATION_KEYWORDS = listOf(
@@ -95,6 +126,13 @@ object RiskRules {
 
     private fun unknownSource(c: RuleContext) = !c.exemptSystem && c.input.installSource == InstallSource.UNKNOWN
 
+    private fun comboSmsControl(c: RuleContext) =
+        granted(c, PermCategory.SMS) && (c.input.hasEnabledAccessibility || c.input.isActiveDeviceAdmin)
+
+    private fun comboUnknownA11yInstall(c: RuleContext) =
+        unknownSource(c) && (c.input.hasEnabledAccessibility || c.input.declaresAccessibility) &&
+            granted(c, PermCategory.INSTALL_PACKAGES)
+
     /**
      * 규칙 표: 한 곳에서 id / 설명 / 점수 / 쉬운 설명 / 조건 정의. 일치한 규칙의 점수는 모두 합산된다.
      *
@@ -106,6 +144,8 @@ object RiskRules {
      *  - 통화 기능 선언(call_service_declared), 기본 앱 차지(default_role_hijack)
      * 대신 0점짜리 참고 규칙 vendor_signed가 표시된다.
      */
+    // APK 구조·포그라운드 유형·삭제 요청·접근성 능력 규칙은 APK 직접 설치(UNKNOWN)에만 적용한다.
+    // 갤럭시 스토어·원스토어의 금융·보안 앱은 보안 모듈(dex/jar, 패커, 화면 녹화)을 정상적으로 쓰기 때문이다 (리뷰 M8).
     val ALL: List<RiskRule> = listOf(
         RiskRule(
             ID_KNOWN_THREAT,
@@ -302,20 +342,13 @@ object RiskRules {
             "위험 조합: 문자 + 접근성/기기관리자",
             20,
             "문자를 가로채면서 휴대폰까지 조작할 수 있어, 인증번호를 받아 바로 송금할 수 있습니다.",
-        ) {
-            val i = it.input
-            granted(it, PermCategory.SMS) && (i.hasEnabledAccessibility || i.isActiveDeviceAdmin)
-        },
+        ) { comboSmsControl(it) },
         RiskRule(
             "combo_unknown_a11y_install",
             "외부 설치 + 접근성 + 다른 앱 설치 권한 조합",
             20,
             "휴대폰을 조작하면서 다른 악성 앱을 계속 설치할 수 있습니다. 보이스피싱 악성 앱의 전형적인 조합입니다.",
-        ) {
-            val i = it.input
-            unknownSource(it) && (i.hasEnabledAccessibility || i.declaresAccessibility) &&
-                granted(it, PermCategory.INSTALL_PACKAGES)
-        },
+        ) { comboUnknownA11yInstall(it) },
         RiskRule(
             "combo_unknown_phone_install",
             "외부 설치 + 전화/통화기록 + 다른 앱 설치 권한 조합",
@@ -333,6 +366,101 @@ object RiskRules {
             "몰래 주변 소리를 녹음하거나 카메라로 촬영해 밖으로 보낼 수 있습니다.",
         ) {
             unknownSource(it) && granted(it, PermCategory.CAMERA_MIC)
+        },
+        // ---- 2026-11 추가 신호 (조합 규칙 외에는 모두 신뢰할 수 없는 출처에만 적용) ----
+        RiskRule(
+            ID_OFFICIAL_LABEL_SPOOF,
+            "유명 앱 이름을 쓰는데 패키지명·서명이 공식 앱과 다름 — 이름 도용",
+            60,
+            "카카오톡·네이버 같은 유명 앱과 똑같은 이름이지만 진짜 회사가 만든 앱이 아닙니다. 진짜처럼 보이게 해서 비밀번호나 인증번호를 입력하게 만드는 가짜입니다.",
+        ) {
+            !it.exemptSystem && it.input.installSource != InstallSource.PLAY_STORE && !it.vendorTrusted &&
+                ThreatIntel.isOfficialLabelSpoof(it.input.packageName, it.input.label, it.input.signerDigests)
+        },
+        RiskRule(
+            "a11y_watch_sensitive",
+            "접근성 서비스가 전화·설정·권한 화면이나 금융 앱을 콕 집어 지켜봄",
+            35,
+            "전화 화면·설정·권한 허용 창이나 은행 앱이 열릴 때만 골라서 화면을 읽고 대신 누를 수 있습니다. 112 통화 화면을 가리거나 이 앱을 지우지 못하게 막는 데 쓰입니다.",
+        ) { it.untrustedOrigin && it.input.a11yWatchedPackages.any { p -> ThreatIntel.isSensitiveWatchTarget(p) } },
+        RiskRule(
+            "a11y_read_and_gesture",
+            "접근성 서비스가 화면 읽기 + 대신 누르기 능력을 함께 가짐",
+            20,
+            "화면에 뜬 글자를 모두 읽으면서 사람 대신 화면을 누를 수 있습니다. 은행 앱을 열어 몰래 송금 버튼을 누를 수 있습니다.",
+        ) { unknownSource(it) && it.input.a11yCanReadAndGesture },
+        RiskRule(
+            "dropper_installed",
+            "다른 외부 설치 앱이 이 앱을 설치함 (드로퍼 의심)",
+            30,
+            "먼저 깔린 수상한 앱이 이 앱을 몰래 내려받아 설치했습니다. 악성앱이 다른 악성앱을 계속 심는 수법입니다. 설치한 앱도 함께 확인하세요.",
+        ) { it.untrustedOrigin && it.input.initiatorIsSideloaded && it.input.initiatingPackage != it.input.packageName },
+        RiskRule(
+            "fake_store_source",
+            "스토어에서 받은 것처럼 신고됐지만 설치한 앱은 스토어가 아님",
+            25,
+            "앱 스토어가 아닌 일반 앱이 스스로 \"스토어에서 받았다\"고 꾸며 설치했습니다. 외부 설치 경고를 피하려는 수법입니다.",
+        ) {
+            val inst = it.input.installerPackage
+            it.untrustedOrigin && it.input.packageSourceStore && inst != null &&
+                inst !in InstallSourceClassifier.KNOWN_STORES
+        },
+        RiskRule(
+            "outgoing_call_intercept",
+            "전화를 걸 때 번호를 가로챌 수 있음 (발신 전화 감시)",
+            30,
+            "112나 은행에 거는 번호를 몰래 보고 다른 번호로 바꿀 수 있습니다. 진짜 기관에 전화해도 사기범에게 연결되게 만드는 수법입니다.",
+        ) { it.untrustedOrigin && (it.input.requestsProcessOutgoingCalls || it.input.handlesNewOutgoingCall) },
+        RiskRule(
+            "write_call_log",
+            "기본 전화 앱이 아닌데 통화기록 쓰기 허용됨",
+            20,
+            "통화 기록을 지우거나 바꿔서 사기범과 통화한 흔적을 숨길 수 있습니다.",
+        ) { it.untrustedOrigin && it.input.writeCallLogGranted && !it.input.isDefaultDialer },
+        RiskRule(
+            "request_delete_packages",
+            "다른 앱 삭제를 요청할 수 있음",
+            15,
+            "백신이나 보안 앱을 지우라는 창을 띄울 수 있습니다. 사기범이 탐지를 피하려고 보안 앱을 지우게 만듭니다.",
+        ) { unknownSource(it) && !it.input.isSelf && it.input.requestsDeletePackages },
+        RiskRule(
+            "fgs_capture_call",
+            "화면 녹화·통화용 백그라운드 서비스를 갖춤",
+            15,
+            "앱을 닫아도 뒤에서 계속 화면을 녹화하거나 통화에 끼어들 수 있습니다.",
+        ) { unknownSource(it) && (it.input.fgsMediaProjection || it.input.fgsPhoneCall) },
+        RiskRule(
+            "apk_nested_payload",
+            "앱 파일 안에 또 다른 앱/실행 코드(.apk·.dex·.jar)를 숨김",
+            30,
+            "설치된 뒤에 숨겨 둔 악성 코드를 꺼내 실행하거나 다른 앱을 설치할 수 있습니다. 검사를 피하려는 악성앱의 흔한 수법입니다.",
+        ) { unknownSource(it) && it.input.apkStructure?.nestedPayload == true },
+        RiskRule(
+            "apk_tampered",
+            "앱 파일 구조가 비정상 (손상·조작·난독화 흔적)",
+            15,
+            "분석 도구가 열지 못하게 일부러 망가뜨리거나 꾸민 앱 파일입니다. 정상 앱에서는 거의 보이지 않습니다.",
+        ) {
+            val a = it.input.apkStructure
+            unknownSource(it) && a != null && (a.longEntryName || a.obfuscatorRootFile || a.openFailed)
+        },
+        RiskRule(
+            "apk_packer",
+            "코드를 감싸 숨기는 패커 라이브러리 사용",
+            10,
+            "앱의 실제 코드를 감싸 숨겨서 무엇을 하는지 알아보기 어렵게 만든 앱입니다.",
+        ) { unknownSource(it) && it.input.apkStructure?.packerLibs == true },
+        RiskRule(
+            "combo_unknown_spy_capable",
+            "외부 설치 + 문자 읽기·접근성·알림 접근 중 하나를 선언 (Play 프로텍트 기준)",
+            20,
+            "스토어 검사를 거치지 않은 앱이 문자나 화면·알림을 엿볼 수 있는 기능을 갖췄습니다. Play 프로텍트가 가장 엄격하게 막는 조합입니다.",
+        ) {
+            // 더 구체적인 조합(문자+접근성/기기관리자, 외부설치+접근성+설치권한)이 이미 걸리면 중복 가산하지 않는다
+            val i = it.input
+            unknownSource(it) &&
+                (i.requestsSmsRead || i.declaresAccessibility || i.declaresNotificationListener) &&
+                !comboSmsControl(it) && !comboUnknownA11yInstall(it)
         },
         RiskRule(
             ID_VENDOR_SIGNED,

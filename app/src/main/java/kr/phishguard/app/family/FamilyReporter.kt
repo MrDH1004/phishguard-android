@@ -10,6 +10,8 @@ import kr.phishguard.app.scan.TrustList
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.UUID
+import kr.phishguard.app.guard.GuardPolicy
 
 /** 부모 폰: 위험 앱 알림과 생존 신호를 자녀 폰으로 보낸다. IO 스레드에서 호출. */
 object FamilyReporter {
@@ -26,10 +28,18 @@ object FamilyReporter {
     fun onPackageChanged(context: Context, pkg: String) {
         if (parentToken(context) == null) return
         val app = ScanRepository.rescanPackage(context, pkg) ?: return
-        if (!reportable(context, app)) return
         synchronized(sendLock) {
             val token = parentToken(context) ?: return
-            sendAlertIfNeeded(context, token, app, FamilyStore.generation())
+            val gen = FamilyStore.generation()
+            try {
+                maybeRequestDecision(context, token, app, gen)
+            } catch (e: FamilyApiException) {
+                handleError(context, e)
+                return
+            } catch (e: IOException) {
+                Log.w(TAG, "결정 요청 전송 실패: ${app.packageName}", e)
+            }
+            sendAlertIfNeeded(context, token, app, gen)
         }
     }
 
@@ -47,6 +57,8 @@ object FamilyReporter {
         TrustList.load(context)
         val risky = apps.filter { reportable(context, it) }
         try {
+            // 결정 요청이 먼저: 기준을 넘었거나 급상승한 앱은 알림 대신 "잠금/차단/무시"를 묻는다
+            apps.forEach { maybeRequestDecision(context, token, it, gen) }
             if (!FamilyStore.snapshotSent(context)) {
                 val top = risky.sortedByDescending { it.riskScore }.take(SNAPSHOT_MAX)
                 val arr = JSONArray()
@@ -73,6 +85,43 @@ object FamilyReporter {
             Log.w(TAG, "sync 전송 실패 (다음에 다시 시도)", e)
             FamilyStore.setError("인터넷 연결이 없어 보내지 못했습니다. 연결되면 다시 보냅니다.")
         }
+    }
+
+    /**
+     * 위험 기준(100~150 설정값) 이상이거나 50점 넘게 급상승한 앱이면 자녀에게 결정 요청을 보낸다 (설치 한 번당 한 번).
+     * 30분 안에 답이 없으면 GuardController가 인터넷만 자동 차단한다. 보낸 앱은 일반 알림을 따로 보내지 않는다.
+     */
+    private fun maybeRequestDecision(context: Context, token: String, app: AppInfo, gen: Int) {
+        val pkg = app.packageName
+        val fit = app.firstInstallTime
+        val prev = FamilyStore.lastScore(context, pkg, fit)
+        val reason = if (reportable(context, app) && !FamilyStore.decisionRequested(context, pkg, fit)) {
+            GuardPolicy.trigger(app.riskScore, prev, FamilyStore.threshold(context))
+        } else {
+            null
+        }
+        if (reason == null) {
+            FamilyStore.setLastScore(context, pkg, fit, app.riskScore)
+            return
+        }
+        // 설치 한 번에 같은 요청 번호 → 응답을 못 받아 다시 보내도 서버·자녀 화면에서 하나로 합쳐진다
+        val requestId = UUID.nameUUIDFromBytes("$pkg|$fit".toByteArray(Charsets.UTF_8)).toString()
+        val deadline = System.currentTimeMillis() + GuardPolicy.AUTO_BLOCK_DELAY_MS
+        // 전송에 실패하면 이전 점수를 그대로 두어 다음 동기화에서 급상승을 다시 판단한다
+        FamilyApi.post(
+            token, FamilyEvent.TYPE_DECISION,
+            JSONObject()
+                .put("requestId", requestId)
+                .put("reason", reason.code)
+                .put("previousScore", prev ?: 0)
+                .put("autoBlockAt", deadline)
+                .put("app", FamilyPolicy.toAlertApp(app).toJson()),
+        )
+        FamilyStore.addOpenDecision(context, FamilyStore.OpenDecision(requestId, pkg, app.label, deadline, fit), gen)
+        FamilyStore.markDecisionSent(context, pkg, fit, gen)
+        FamilyStore.setLastScore(context, pkg, fit, app.riskScore)
+        FamilyStore.markReported(context, pkg, fit, app.riskLevel, gen)
+        FamilyStore.markSent(context, gen)
     }
 
     private fun sendAlertIfNeeded(context: Context, token: String, app: AppInfo, gen: Int) {
@@ -104,9 +153,23 @@ object FamilyReporter {
         }
     }
 
+    /** 연결이 승인된 부모 폰의 토큰 (승인 전이면 null — 서버도 보내기를 거부한다) */
     private fun parentToken(context: Context): String? {
         FamilyStore.ensureLoaded(context)
-        if (FamilyStore.state.value.role != FamilyRole.PARENT) return null
+        val s = FamilyStore.state.value
+        if (s.role != FamilyRole.PARENT || !s.paired) return null
         return FamilyStore.token(context)
+    }
+
+    /** 명령 실행 결과·자동 차단을 자녀에게 알림 */
+    fun postResult(context: Context, data: JSONObject) {
+        val token = parentToken(context) ?: return
+        try {
+            FamilyApi.post(token, FamilyEvent.TYPE_COMMAND_RESULT, data)
+        } catch (e: FamilyApiException) {
+            handleError(context, e)
+        } catch (e: IOException) {
+            Log.w(TAG, "결과 전송 실패", e)
+        }
     }
 }

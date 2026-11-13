@@ -70,6 +70,56 @@ object ThreatIntel {
         return signerDigests.isNotEmpty() && signerDigests.none { it in official }
     }
 
+    /**
+     * 공식 앱의 실제 표시 이름(정규화: 소문자·공백 제거) → 패키지명. 위 OFFICIAL_SIGNERS를 확인한 설치본의 라벨.
+     * 패키지명을 바꾸고 이름만 베낀 가짜를 잡는 데 쓴다 (패키지명까지 베낀 가짜는 isOfficialSignerMismatch).
+     */
+    val OFFICIAL_LABELS: Map<String, String> = mapOf(
+        "카카오톡" to "com.kakao.talk",
+        "kakaotalk" to "com.kakao.talk",
+        "line" to "jp.naver.line.android",
+        "네이버" to "com.nhn.android.search",
+        "naver" to "com.nhn.android.search",
+        "밴드" to "com.nhn.android.band",
+        "band" to "com.nhn.android.band",
+        "인터넷지로" to "kr.or.giro.android",
+        "당근" to "com.towneers.www",
+        "애니서포트" to "net.koino.anysupportMobile",
+        "애니서포트모바일지원" to "net.koino.anysupportMobile",
+        "anysupport" to "net.koino.anysupportMobile",
+        "kt인증" to "com.kt.ktauth",
+    )
+
+    internal fun normalizeLabel(label: String): String = label.lowercase().filterNot { it.isWhitespace() }
+
+    /**
+     * 유명 앱 이름을 그대로 쓰는데 패키지명이 다르고, 서명도 그 공식 앱 서명이 아님.
+     * 서명을 못 읽었으면(빈 집합) 판단하지 않는다.
+     */
+    fun isOfficialLabelSpoof(packageName: String, label: String, signerDigests: Set<String>): Boolean {
+        val officialPkg = OFFICIAL_LABELS[normalizeLabel(label)] ?: return false
+        if (packageName == officialPkg || signerDigests.isEmpty()) return false
+        val official = OFFICIAL_SIGNERS[officialPkg] ?: return false
+        return signerDigests.none { it in official }
+    }
+
+    // ---- 접근성 서비스가 지켜보는 앱 ----
+
+    /** 전화 앱·권한 허용 화면·상단바·설정: 악성 접근성 서비스가 통화 화면을 가리거나 권한 허용/삭제를 대신 누르는 대상 */
+    val SENSITIVE_WATCH_PACKAGES: Set<String> = setOf(
+        "com.android.dialer", "com.samsung.android.dialer", "com.skt.prod.dialer", "com.google.android.dialer",
+        "com.google.android.permissioncontroller", "com.android.permissioncontroller",
+        "com.android.systemui", "com.android.settings",
+    )
+
+    /**
+     * 접근성 서비스가 지켜볼 앱으로 콕 집은 대상이 민감한지: 위 목록, 공식 앱 목록, 또는 패키지명에 "bank"가 들어간 앱.
+     * packageNames가 null(모든 앱)인 경우는 여기로 오지 않는다 — 정상 접근성 앱 대부분이 모든 앱을 대상으로 한다.
+     */
+    fun isSensitiveWatchTarget(packageName: String): Boolean =
+        packageName in SENSITIVE_WATCH_PACKAGES || packageName in OFFICIAL_SIGNERS ||
+            packageName.lowercase().contains("bank")
+
     // ---- 원격조종 앱 ----
 
     /** 원격조종 앱 패키지 접두어. 정상 앱이지만 사기범이 "보안 점검" 명목으로 설치시켜 폰을 조종하는 데 쓴다. */
@@ -203,6 +253,18 @@ object InstallSourceClassifier {
     val PACKAGE_INSTALLERS = setOf(
         "com.google.android.packageinstaller",
         "com.android.packageinstaller",
+    )
+
+    /**
+     * 알려진 앱 스토어 설치자. PACKAGE_SOURCE_STORE(설치자가 스스로 "스토어"라고 신고한 값)인데 설치자가 여기 없으면
+     * 일반 앱이 세션 설치로 스토어인 척한 것으로 본다. 기본 패키지 설치 프로그램은 스토어가 아니다.
+     */
+    val KNOWN_STORES = setOf(
+        PLAY_STORE,
+        "com.sec.android.app.samsungapps", // 갤럭시 스토어
+        "com.skt.skaf.A000Z00040", // 원스토어
+        "com.kt.olleh.storefront",
+        "com.lguplus.appstore",
     )
 
     fun classify(isSystem: Boolean, installer: String?): InstallSource = when {

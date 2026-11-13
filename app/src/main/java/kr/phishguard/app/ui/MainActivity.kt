@@ -42,6 +42,8 @@ import kr.phishguard.app.background.BackgroundScheduler
 import kr.phishguard.app.background.InstallWatchWorker
 import kr.phishguard.app.family.FamilyController
 import kr.phishguard.app.family.FamilyScreen
+import kr.phishguard.app.guard.CleanupScreen
+import kr.phishguard.app.guard.LockOverlay
 import kr.phishguard.app.history.HistoryScreen
 import kr.phishguard.app.net.BlockList
 import kr.phishguard.app.net.MonitorScreen
@@ -74,6 +76,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 잠금이 남아 있으면 다시 덮고, 그 사이 끝났으면 정리 안내 (리뷰 L2)
+        LockOverlay.restoreIfActive(applicationContext)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -97,7 +105,7 @@ fun AppRoot(pendingTab: String? = null, onTabHandled: () -> Unit = {}) {
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
     LaunchedEffect(pendingTab) {
-        if (pendingTab == "history" || pendingTab == "family") {
+        if (pendingTab == "history" || pendingTab == "family" || pendingTab == LockOverlay.TAB_CLEANUP) {
             nav.navigate(pendingTab) {
                 popUpTo("scan") { saveState = true }
                 launchSingleTop = true
@@ -134,6 +142,7 @@ fun AppRoot(pendingTab: String? = null, onTabHandled: () -> Unit = {}) {
                 composable("monitor") { MonitorScreen(onOpenApp = { nav.navigate("app/$it") }) }
                 composable("history") { HistoryScreen(onOpenApp = { nav.navigate("app/$it") }) }
                 composable("family") { FamilyScreen() }
+                composable(LockOverlay.TAB_CLEANUP) { CleanupScreen(onDone = { nav.popBackStack("scan", inclusive = false) }) }
                 composable("settings") { SettingsScreen() }
                 composable(
                     "app/{pkg}",

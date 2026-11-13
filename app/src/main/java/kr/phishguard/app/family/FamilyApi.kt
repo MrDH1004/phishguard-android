@@ -55,6 +55,17 @@ object FamilyApi {
         return JoinResult(j.getString("token"), j.optString("childName", "자녀 폰"))
     }
 
+    /** 자녀: 연결 요청 승인/거절 */
+    fun approve(token: String, approve: Boolean) {
+        request("POST", "/v1/pair/approve", JSONObject().put("approve", approve), token)
+    }
+
+    /** 자녀: 부모 폰에 조치 명령 (lock / block / ignore) */
+    fun command(token: String, type: String, requestId: String, packageName: String, label: String) {
+        val data = JSONObject().put("requestId", requestId).put("packageName", packageName).put("label", label)
+        request("POST", "/v1/commands", JSONObject().put("type", type).put("data", data), token)
+    }
+
     fun state(token: String, sinceId: Long): JSONObject = request("GET", "/v1/state?since=$sinceId", null, token)
 
     /** 부모: 사건 보내기 (alert / snapshot / heartbeat) */
