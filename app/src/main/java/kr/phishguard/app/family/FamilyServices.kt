@@ -76,8 +76,8 @@ private class FamilySocket(
     /** 서버에서 연결이 없어짐 (끊김·만료·거절). rejected = 자녀가 연결 요청을 거절함 */
     private val onGone: (rejected: Boolean) -> Unit,
 ) {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
+    // 공유 HTTP 클라이언트의 연결 풀·스레드를 같이 쓰되, WebSocket은 읽기 시간 제한 없음
+    private val client = FamilyApi.http.newBuilder()
         .readTimeout(0, TimeUnit.SECONDS)
         .build()
 
@@ -111,7 +111,7 @@ private class FamilySocket(
     fun stop() {
         stopped = true
         socket?.close(1000, null)
-        client.dispatcher.executorService.shutdown()
+        // 공유 클라이언트의 스레드는 다른 요청도 쓰므로 종료하지 않는다
     }
 
     private suspend fun loop() {
@@ -134,16 +134,23 @@ private class FamilySocket(
                 return
             }
             socket = ws
-            // 연결 유지: 45초마다 ping, 100초 넘게 pong이 없으면 끊고 다시 연결
+            // 연결 유지: ping 간격을 스스로 조절한다 (KeepAlivePolicy). pong이 늦으면 끊고 다시 연결하고 간격을 줄인다.
             val pinger = scope.launch {
+                var stable = 0
                 while (isActive) {
-                    delay(PING_MS)
+                    val interval = KeepAlivePolicy.current(context)
+                    delay(interval)
+                    val sentAt = System.currentTimeMillis()
                     ws.send("ping")
-                    if (System.currentTimeMillis() - lastPong > PONG_TIMEOUT_MS) {
-                        Log.w(TAG, "$tag: pong 없음, 다시 연결")
+                    delay(KeepAlivePolicy.PONG_WAIT_MS)
+                    if (lastPong < sentAt) {
+                        Log.w(TAG, "$tag: ${interval / 1000}초 간격에서 pong 없음, 간격 줄이고 다시 연결")
+                        KeepAlivePolicy.onTimeout(context, interval)
                         ws.cancel()
                         break
                     }
+                    stable++
+                    if (KeepAlivePolicy.onStable(context, interval, stable)) stable = 0
                 }
             }
             val code = closed.await()
@@ -179,7 +186,7 @@ private class FamilySocket(
 
     private fun setLive(v: Boolean) {
         live = v
-        if (tag == "child") FamilyStore.setLive(v)
+        if (tag == "child") FamilyStore.setLive(v) else ParentGuardService.socketLive = v
     }
 
     private fun confirmGone(token: String): Boolean = try {
@@ -236,8 +243,6 @@ private class FamilySocket(
 
     companion object {
         private const val TAG = "PG-FamilySocket"
-        private const val PING_MS = 45_000L
-        private const val PONG_TIMEOUT_MS = 100_000L
         private const val MIN_BACKOFF_MS = 2_000L
         private const val MAX_BACKOFF_MS = 60_000L
         private const val STABLE_MS = 30_000L
@@ -426,6 +431,10 @@ class ParentGuardService : Service() {
         @Volatile
         var running = false
             private set
+
+        /** 서버와 실시간 연결 중인지 (연결 중이면 서버가 ping으로 생존을 알므로 생존 신호 HTTP를 줄인다) */
+        @Volatile
+        var socketLive = false
     }
 }
 

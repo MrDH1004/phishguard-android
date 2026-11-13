@@ -65,10 +65,14 @@ class MonitorVpnService : VpnService() {
             .setSession("피싱앱 검사기 - 인터넷 차단")
             .addAddress("10.111.0.2", 32)
             .addRoute("0.0.0.0", 0)
+            // 차단된 앱의 도메인 조회가 TUN으로 들어오게 TUN 안쪽 주소를 DNS로 지정한다 (응답은 하지 않음).
+            // 지정하지 않으면 시스템이 원래 회선 DNS로 조회해 어떤 도메인에 접속하려 했는지 기록할 수 없다.
+            .addDnsServer("10.111.0.1")
             .setBlocking(true)
         try {
             builder.addAddress("fd00:7068:6973::2", 128)
             builder.addRoute("::", 0)
+            builder.addDnsServer("fd00:7068:6973::1")
         } catch (e: IllegalArgumentException) {
             Log.w(TAG, "IPv6 라우트 추가 실패", e)
         }
@@ -99,6 +103,8 @@ class MonitorVpnService : VpnService() {
         tun = pfd
         _running.value = true
         updateNotification(installed.size)
+        val blockedNow = installed.toSet()
+        BlockedTraffic.ensureLoaded(applicationContext)
         drainJob = scope.launch {
             val input = FileInputStream(pfd.fileDescriptor)
             val buf = ByteArray(32767)
@@ -106,7 +112,8 @@ class MonitorVpnService : VpnService() {
                 while (isActive) {
                     val n = input.read(buf)
                     if (n < 0) break
-                    // 차단 대상 앱의 패킷: 버린다(전달하지 않음)
+                    // 차단 대상 앱의 패킷: 머리 부분만 읽어 목적지·DNS 도메인을 기록하고 버린다(전달하지 않음)
+                    BlockedTraffic.onPacket(applicationContext, buf, n, blockedNow)
                 }
             } catch (e: IOException) {
                 Log.i(TAG, "TUN 읽기 종료: ${e.message}")
@@ -128,6 +135,7 @@ class MonitorVpnService : VpnService() {
 
     @Synchronized
     private fun closeTun() {
+        BlockedTraffic.flush(applicationContext)
         drainJob?.cancel()
         drainJob = null
         try {

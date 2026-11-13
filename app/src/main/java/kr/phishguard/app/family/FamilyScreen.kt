@@ -247,7 +247,7 @@ private fun ChildLinked(s: FamilyState) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         FamilyController.ensureServices(context)
-        withContext(Dispatchers.IO) { if (!FamilyStore.state.value.live) FamilyController.pollChild(context) }
+        withContext(Dispatchers.IO) { FamilyController.pollChild(context) }
         while (true) {
             now = System.currentTimeMillis(); delay(5_000)
         }

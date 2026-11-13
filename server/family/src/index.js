@@ -421,6 +421,19 @@ export class Family extends DurableObject {
     await this.ctx.storage.put("gone", true);
   }
 
+  /**
+   * 부모 폰이 마지막으로 살아 있던 시각: HTTP 생존 신호와, 부모 WebSocket의 ping 자동 응답 시각 중 늦은 것.
+   * 자동 응답은 DO를 깨우지 않으므로 ping마다 비용이 들지 않는다 (getWebSocketAutoResponseTimestamp).
+   */
+  parentSeenAt(m) {
+    let t = m.lastHeartbeat || 0;
+    for (const ws of this.ctx.getWebSockets("parent")) {
+      const d = this.ctx.getWebSocketAutoResponseTimestamp(ws);
+      if (d && d.getTime() > t) t = d.getTime();
+    }
+    return t || null;
+  }
+
   async stateFor(m, role, sinceId) {
     const base = {
       paired: !!m.approved,
@@ -430,7 +443,7 @@ export class Family extends DurableObject {
       pairedAt: m.pairedAt,
     };
     if (role === "child") {
-      return { ...base, lastHeartbeat: m.lastHeartbeat, heartbeat: m.heartbeat, events: await this.eventsSince(sinceId) };
+      return { ...base, lastHeartbeat: this.parentSeenAt(m), heartbeat: m.heartbeat, events: await this.eventsSince(sinceId) };
     }
     return { ...base, commands: m.approved ? await this.commandsSince(sinceId) : [] };
   }
@@ -524,6 +537,7 @@ export class Family extends DurableObject {
         snapshot: sanitizeSnapshot,
         decision: sanitizeDecision,
         command_result: sanitizeCommandResult,
+        alerts: sanitizeAlerts,
       };
       if (!Object.prototype.hasOwnProperty.call(handlers, type)) throw new HttpError(400, "bad_type", "알 수 없는 종류");
       const data = handlers[type] ? handlers[type](body.data) : null;
@@ -541,6 +555,12 @@ export class Family extends DurableObject {
       if (type === "heartbeat") {
         this.send("child", { kind: "heartbeat", lastHeartbeat: now, heartbeat: m.heartbeat });
         return json({ ok: true });
+      }
+      if (type === "alerts") {
+        // 여러 알림을 한 번에 받아 사건을 하나씩 만든다 (요청·TLS 연결 수를 줄이기 위함)
+        const ids = [];
+        for (const a of data) ids.push((await this.addEvent("alert", a)).id);
+        return json({ ok: true, ids });
       }
       const ev = await this.addEvent(type, data);
       if (type === "decision" && data.requestId) await this.ctx.storage.put(`decreq:${data.requestId}`, ev.id);
@@ -582,6 +602,15 @@ export class Family extends DurableObject {
       }
       await this.ctx.storage.setAlarm(exp);
       return;
+    }
+    const seen = this.parentSeenAt(m);
+    if (seen && seen > (m.lastHeartbeat || 0)) {
+      // 실시간 연결로 살아 있음이 확인됨: 저장해 두고, 신호 없음 경고 중이었으면 복귀 알림
+      m.lastHeartbeat = seen;
+      const wasSilent = m.silentNotified;
+      m.silentNotified = false;
+      await this.ctx.storage.put("meta", m);
+      if (wasSilent) await this.addEvent("parent_back", {});
     }
     if (!m.silentNotified && m.lastHeartbeat && now - m.lastHeartbeat > SILENT_AFTER_MS) {
       m.silentNotified = true;
@@ -627,6 +656,11 @@ function sanitizeAlert(d) {
   if (!app || !app.packageName) throw new HttpError(400, "bad_alert", "앱 정보가 없습니다");
   const kind = d.kind === "installed" || d.kind === "risk_up" ? d.kind : "installed";
   return { kind, app };
+}
+
+function sanitizeAlerts(d) {
+  const items = Array.isArray(d && d.items) ? d.items.slice(0, 50) : [];
+  return items.map(sanitizeAlert);
 }
 
 function sanitizeSnapshot(d) {

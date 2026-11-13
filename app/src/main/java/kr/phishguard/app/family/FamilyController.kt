@@ -165,8 +165,9 @@ object FamilyController {
         flushPendingUnlinks(context)
         val s = FamilyStore.state.value
         when (s.role) {
-            FamilyRole.PARENT -> {
-                if (!ParentGuardService.running) pollParent(context)
+            FamilyRole.PARENT -> if (!ParentGuardService.running) {
+                // 상시 서비스가 막혀 있을 때만 대신 처리 (돌고 있으면 실시간 감지·3시간 동기화·1분 마감 확인을 서비스가 한다)
+                pollParent(context)
                 FamilyReporter.sync(context)
                 GuardController.checkDeadlines(context)
             }

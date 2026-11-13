@@ -17,6 +17,8 @@ import kr.phishguard.app.guard.GuardPolicy
 object FamilyReporter {
     private const val TAG = "PG-FamilyReporter"
     private const val SNAPSHOT_MAX = 50
+    private const val BATCH_MAX = 50
+    private const val HEARTBEAT_MAX_GAP_MS = 12L * 60 * 60 * 1000
 
     /** 연결 직후 PIN 입력 화면과 상시 서비스가 동시에 보내 snapshot이 두 번 가는 일을 막는다 (전송은 한 번에 하나) */
     private val sendLock = Any()
@@ -68,16 +70,23 @@ object FamilyReporter {
                 top.forEach { FamilyStore.markReported(context, it.packageName, it.firstInstallTime, it.riskLevel, gen) }
                 FamilyStore.markSnapshotSent(context, gen)
             }
-            risky.forEach { sendAlertIfNeeded(context, token, it, gen) }
-            FamilyApi.post(
-                token, "heartbeat",
-                JSONObject()
-                    .put("high", risky.count { it.riskLevel == RiskLevel.HIGH })
-                    .put("medium", risky.count { it.riskLevel == RiskLevel.MEDIUM })
-                    .put("appVersion", BuildConfig.VERSION_NAME)
-                    // 실시간 설치 감지 서비스가 실제로 돌고 있는지 (꺼져 있으면 자녀 화면에 경고)
-                    .put("guardOn", ParentGuardService.running),
-            )
+            sendAlertsBatched(context, token, risky, gen)
+            val hb = JSONObject()
+                .put("high", risky.count { it.riskLevel == RiskLevel.HIGH })
+                .put("medium", risky.count { it.riskLevel == RiskLevel.MEDIUM })
+                .put("appVersion", BuildConfig.VERSION_NAME)
+                // 실시간 설치 감지 서비스가 실제로 돌고 있는지 (꺼져 있으면 자녀 화면에 경고)
+                .put("guardOn", ParentGuardService.running)
+            // 실시간 연결이 살아 있으면 서버가 ping 시각으로 생존을 안다 → 내용이 바뀌었을 때만 보낸다 (최대 12시간에 한 번은 보냄)
+            val now = System.currentTimeMillis()
+            val signature = hb.toString()
+            val needed = !ParentGuardService.socketLive ||
+                signature != FamilyStore.lastHeartbeatSignature(context) ||
+                now - FamilyStore.lastHeartbeatSentAt(context) > HEARTBEAT_MAX_GAP_MS
+            if (needed) {
+                FamilyApi.post(token, "heartbeat", hb)
+                FamilyStore.markHeartbeatSent(context, signature, now)
+            }
             FamilyStore.markSent(context, gen)
         } catch (e: FamilyApiException) {
             handleError(context, e)
@@ -122,6 +131,25 @@ object FamilyReporter {
         FamilyStore.setLastScore(context, pkg, fit, app.riskScore)
         FamilyStore.markReported(context, pkg, fit, app.riskLevel, gen)
         FamilyStore.markSent(context, gen)
+    }
+
+    /** 새로 보낼 알림을 모아 요청 한 번으로 보낸다 (한 앱이면 기존 단건 형식) */
+    private fun sendAlertsBatched(context: Context, token: String, risky: List<AppInfo>, gen: Int) {
+        val todo = risky.mapNotNull { app ->
+            val kind = FamilyPolicy.alertKind(FamilyStore.reportedLevel(context, app.packageName, app.firstInstallTime), app.riskLevel)
+            kind?.let { app to it }
+        }
+        if (todo.isEmpty()) return
+        if (todo.size == 1) {
+            sendAlertIfNeeded(context, token, todo[0].first, gen)
+            return
+        }
+        val items = JSONArray()
+        todo.take(BATCH_MAX).forEach { (app, kind) ->
+            items.put(JSONObject().put("kind", kind).put("app", FamilyPolicy.toAlertApp(app).toJson()))
+        }
+        FamilyApi.post(token, "alerts", JSONObject().put("items", items))
+        todo.take(BATCH_MAX).forEach { (app, _) -> FamilyStore.markReported(context, app.packageName, app.firstInstallTime, app.riskLevel, gen) }
     }
 
     private fun sendAlertIfNeeded(context: Context, token: String, app: AppInfo, gen: Int) {

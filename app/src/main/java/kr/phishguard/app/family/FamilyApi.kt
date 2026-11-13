@@ -5,8 +5,11 @@ import kr.phishguard.app.BuildConfig
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 import java.security.SecureRandom
 
 /** 서버 응답 오류. code는 서버가 준 오류 코드 (예: pin_not_found, unknown_token) */
@@ -80,23 +83,26 @@ object FamilyApi {
     fun wsUrl(sinceId: Long): String = baseUrl.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") +
         "/v1/ws?since=$sinceId"
 
+    /**
+     * 앱 전체가 함께 쓰는 HTTP 클라이언트. 연결을 재사용(HTTP/2·keep-alive)해서 동기화 한 번에 요청이 여러 개여도
+     * TLS 연결은 한 번만 맺는다. WebSocket도 같은 연결 풀·스레드를 쓴다.
+     */
+    val http: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+        .readTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+        .writeTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
+        .build()
+
+    private val JSON_TYPE = "application/json; charset=utf-8".toMediaType()
+
     private fun request(method: String, path: String, body: JSONObject?, token: String?): JSONObject {
-        val conn = URL(baseUrl + path).openConnection() as HttpURLConnection
-        try {
-            conn.requestMethod = method
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-            conn.useCaches = false
-            conn.setRequestProperty("accept", "application/json")
-            if (token != null) conn.setRequestProperty("authorization", "Bearer $token")
-            if (body != null) {
-                conn.doOutput = true
-                conn.setRequestProperty("content-type", "application/json; charset=utf-8")
-                conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
-            }
-            val status = conn.responseCode
-            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
-            val text = stream?.use { it.readBytes().toString(Charsets.UTF_8) }.orEmpty()
+        val rb = Request.Builder().url(baseUrl + path).header("accept", "application/json")
+        if (token != null) rb.header("authorization", "Bearer $token")
+        val payload = body?.toString()?.toRequestBody(JSON_TYPE)
+        rb.method(method, payload ?: if (method == "POST") "".toRequestBody(JSON_TYPE) else null)
+        http.newCall(rb.build()).execute().use { resp ->
+            val status = resp.code
+            val text = resp.body?.string().orEmpty()
             val json = try {
                 if (text.isEmpty()) JSONObject() else JSONObject(text)
             } catch (e: JSONException) {
@@ -110,8 +116,6 @@ object FamilyApi {
                 throw FamilyApiException(status, code, msg)
             }
             return json
-        } finally {
-            conn.disconnect()
         }
     }
 }

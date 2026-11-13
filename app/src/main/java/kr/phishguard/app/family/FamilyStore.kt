@@ -284,6 +284,16 @@ object FamilyStore {
         }
     }
 
+    // ---- 부모: 생존 신호를 꼭 필요할 때만 보내기 ----
+
+    fun lastHeartbeatSignature(context: Context): String? = prefs(context).getString("hb_sig", null)
+
+    fun lastHeartbeatSentAt(context: Context): Long = prefs(context).getLong("hb_sent", 0)
+
+    fun markHeartbeatSent(context: Context, signature: String, at: Long) {
+        prefs(context).edit().putString("hb_sig", signature).putLong("hb_sent", at).apply()
+    }
+
     // ---- 서버에 못 알린 연결 끊기 (다음에 다시 보냄) ----
 
     fun addPendingUnlink(context: Context, token: String) {

@@ -31,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -165,6 +166,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                 }
             }
         }
+        item { BlockedTrafficCard() }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 SectionTitle("앱별 데이터 사용량")
@@ -292,5 +294,35 @@ private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) 
         Card(onClick = { onOpenApp(pkg) }, enabled = openable, modifier = Modifier.fillMaxWidth()) { content() }
     } else {
         Card(Modifier.fillMaxWidth()) { content() }
+    }
+}
+
+/** 차단된 앱이 접속하려던 곳 (차단 VPN 기록). 경찰 신고 때 범인 서버 주소의 근거가 된다 */
+@Composable
+private fun BlockedTrafficCard() {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { BlockedTraffic.ensureLoaded(context) }
+    val list by BlockedTraffic.snapshot.collectAsStateWithLifecycle()
+    if (list.isEmpty()) return
+    val fmt = remember { java.text.SimpleDateFormat("M/d HH:mm", java.util.Locale.KOREA) }
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionTitle("차단된 앱이 접속하려던 곳", first = true)
+            Text(
+                "차단 중인 앱이 연결을 시도한 주소입니다. 도메인(이름)이 범인 서버일 수 있으니 신고할 때 증거 파일과 함께 내세요. 증거 ZIP에도 들어갑니다.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            list.take(15).forEach { e ->
+                Column {
+                    Text(e.target, fontWeight = if (e.kind == "dns") FontWeight.Bold else FontWeight.Normal)
+                    Text(
+                        "${if (e.kind == "dns") "도메인 조회" else e.kind.uppercase()} · ${e.count}회 · 마지막 ${fmt.format(java.util.Date(e.lastSeen))}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (list.size > 15) Text("외 ${list.size - 15}곳", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
