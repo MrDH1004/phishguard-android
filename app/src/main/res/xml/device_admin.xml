@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 기기 소유자 모드(선택): 앱 정지·조용한 삭제·이 앱 삭제 방지는 소유자 권한으로 하므로 따로 요청할 정책이 없다 -->
+<device-admin>
+    <uses-policies />
+</device-admin>

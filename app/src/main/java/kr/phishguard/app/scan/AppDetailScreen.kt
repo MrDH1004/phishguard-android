@@ -54,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import kr.phishguard.app.net.VpnAllowList
 import kr.phishguard.app.net.PcapdroidMonitorSection
 import kr.phishguard.app.remove.EvidenceSaveSection
 import kr.phishguard.app.ui.ErrorText
@@ -189,6 +192,7 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
             if (!isSelf) {
                 EvidenceSaveSection(app)
                 TrustSection(app)
+                VpnAllowSection(app)
             }
             OutlinedButton(
                 onClick = { settingsOpenFailed = !openAppSettings(context, app.packageName) },
@@ -206,8 +210,10 @@ fun AppDetailScreen(packageName: String, onStartRemoval: (String) -> Unit, onBac
             SectionTitle("설치 정보")
             InfoRow("최초 설치", formatTime(app.firstInstallTime))
             InfoRow("마지막 업데이트", formatTime(app.lastUpdateTime))
-            InfoRow("설치한 앱", app.installerPackage ?: "없음")
             InfoRow("설치 출처", app.installSource.label)
+            InfoRow("설치 경로", InstallOrigin.describe(app.installSource, app.installerPackage, app.initiatingPackage, labelLookup(LocalContext.current)))
+            InfoRow("설치자 기록", app.installerPackage ?: "없음")
+            InfoRow("설치 요청 앱", app.initiatingPackage ?: "확인 불가 (Android 10 이하 또는 기록 없음)")
 
             SectionTitle("상태")
             val flags = buildList {
@@ -286,6 +292,36 @@ private fun openDefaultAppsSettings(context: android.content.Context): Boolean {
     } catch (e: ActivityNotFoundException) {
         Log.w(TAG, "default apps settings unavailable", e)
         false
+    }
+}
+
+/** VPN 규칙에 걸린 앱(또는 이미 허용한 앱)만: VPN 허용 앱 지정/해제. VPN 관련 점수만 빠지고 다른 규칙은 그대로 */
+@Composable
+private fun VpnAllowSection(app: AppInfo) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val allowed by VpnAllowList.allowed.collectAsStateWithLifecycle()
+    val isAllowed = app.packageName in allowed
+    if (!isAllowed && app.matchedRules.none { it.id in RiskRules.VPN_RULE_IDS }) return
+    val toggle = { allow: Boolean ->
+        VpnAllowList.set(context, app.packageName, allow)
+        scope.launch(Dispatchers.IO) { ScanRepository.rescanPackage(context, app.packageName) }
+        Unit
+    }
+    if (isAllowed) {
+        Text(
+            "VPN 허용 앱 · VPN 관련 점수는 빼고 계산합니다",
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        OutlinedButton(onClick = { toggle(false) }, modifier = Modifier.fillMaxWidth()) { Text("VPN 허용 해제") }
+    } else {
+        OutlinedButton(onClick = { toggle(true) }, modifier = Modifier.fillMaxWidth()) { Text("VPN 허용 앱으로 지정") }
+        Text(
+            "회사 VPN처럼 직접 쓰는 VPN 앱이면 지정하세요. 모르는 앱이면 지정하지 마세요.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -388,5 +424,15 @@ private fun openAppSettings(context: android.content.Context, pkg: String): Bool
     } catch (e: ActivityNotFoundException) {
         Log.w(TAG, "app settings unavailable for $pkg", e)
         false
+    }
+}
+
+/** 설치된 앱이면 이름, 아니면 null */
+private fun labelLookup(context: android.content.Context): (String) -> String? = { pkg ->
+    try {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+        null
     }
 }

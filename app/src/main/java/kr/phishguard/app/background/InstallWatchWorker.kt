@@ -16,6 +16,7 @@ import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kr.phishguard.app.family.FamilyController
+import kr.phishguard.app.family.QuietMode
 import kr.phishguard.app.history.HistoryEvent
 import kr.phishguard.app.history.HistoryEventType
 import kr.phishguard.app.history.HistoryStore
@@ -55,6 +56,10 @@ class InstallWatchWorker(context: Context, params: WorkerParameters) : Coroutine
     }
 
     private fun notifyInstalled(ctx: Context, events: List<HistoryEvent>) {
+        if (QuietMode.isQuiet(ctx)) {
+            Log.i(TAG, "부모 폰 조용 모드: 설치 알림 생략")
+            return
+        }
         if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) {

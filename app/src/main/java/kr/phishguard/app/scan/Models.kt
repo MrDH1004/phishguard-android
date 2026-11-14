@@ -26,7 +26,7 @@ data class PermissionInfoItem(
 )
 
 /** 설치 출처 */
-enum class InstallSource(val label: String) { PLAY_STORE("Play 스토어"), OTHER_STORE("기타 스토어/앱"), UNKNOWN("알 수 없음(APK 직접 설치)"), SYSTEM("시스템") }
+enum class InstallSource(val label: String) { PLAY_STORE("Play 스토어"), OTHER_STORE("기타 스토어/앱"), UNKNOWN("APK 직접 설치"), SYSTEM("시스템") }
 
 /** 일치한 규칙. plainExplanation은 공격자가 이 상태로 무엇을 할 수 있는지 쉬운 말로 설명한다. */
 data class MatchedRule(val id: String, val description: String, val points: Int, val plainExplanation: String = "")
@@ -69,4 +69,6 @@ data class AppInfo(
     val declaresInCallService: Boolean = false,
     /** 기기에 미리 설치된 시스템 앱과 같은 서명 인증서로 서명됨 (제조사·기기 서명) */
     val vendorSigned: Boolean = false,
+    /** 실제로 설치를 요청한 앱 (Android 11+). APK 직접 설치면 파일을 연 메신저·브라우저·파일 앱 */
+    val initiatingPackage: String? = null,
 )

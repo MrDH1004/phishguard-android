@@ -64,6 +64,12 @@ data class RiskInput(
     val fgsPhoneCall: Boolean = false,
     /** APK 구조 검사 결과. 검사 안 함(신뢰 출처·읽기 실패)이면 null */
     val apkStructure: ApkStructure? = null,
+    /** VpnService(BIND_VPN_SERVICE 보호 서비스) 선언 */
+    val declaresVpnService: Boolean = false,
+    /** 지금 이 앱의 VPN이 켜져 있음 */
+    val vpnActiveNow: Boolean = false,
+    /** 사용자가 'VPN 허용 앱'으로 지정 (회사 VPN 등) → VPN 관련 규칙만 제외 */
+    val vpnAllowedByUser: Boolean = false,
 )
 
 /** 규칙 평가 시점의 입력 + 현재 시각 */
@@ -102,6 +108,13 @@ object RiskRules {
     /** 기본 전화/문자 앱 가로채기 규칙 id (화면 경고 배너가 사용) */
     const val ID_DEFAULT_ROLE_HIJACK = "default_role_hijack"
     const val ID_VENDOR_SIGNED = "vendor_signed"
+    const val ID_SIDELOADED_VPN = "sideloaded_vpn"
+    const val ID_SIDELOADED_VPN_ACTIVE = "sideloaded_vpn_active"
+    val VPN_RULE_IDS = setOf(ID_SIDELOADED_VPN, ID_SIDELOADED_VPN_ACTIVE)
+
+    /** 신뢰할 수 없는 출처의 VPN 기능 앱 (이 앱·사용자가 허용한 VPN 앱 제외) */
+    private fun sideloadedVpn(c: RuleContext) =
+        c.untrustedOrigin && !c.input.isSelf && !c.input.vpnAllowedByUser && c.input.declaresVpnService
     const val ID_KNOWN_THREAT = "known_threat"
     const val ID_FAKE_OFFICIAL = "fake_official_app"
     const val ID_OFFICIAL_LABEL_SPOOF = "official_label_spoof"
@@ -378,6 +391,16 @@ object RiskRules {
                 ThreatIntel.isOfficialLabelSpoof(it.input.packageName, it.input.label, it.input.signerDigests)
         },
         RiskRule(
+            "official_name_other_package",
+            "은행·카드·정부기관·원격지원 등 공식 앱 이름을 쓰는데 패키지명이 공식 앱과 다름",
+            50,
+            "진짜 은행·기관 앱과 같은 이름이지만 그 회사가 Play 스토어에 올린 앱이 아닙니다. 사기범이 보낸 링크로 깔리는 가짜 은행·검찰·택배 앱이 이렇게 생겼습니다. 지우고 필요한 앱은 Play 스토어에서 다시 받으세요.",
+        ) {
+            !it.exemptSystem && it.input.installSource != InstallSource.PLAY_STORE && !it.vendorTrusted &&
+                !ThreatIntel.isOfficialLabelSpoof(it.input.packageName, it.input.label, it.input.signerDigests) &&
+                ThreatIntel.isOfficialNameOtherPackage(it.input.packageName, it.input.label)
+        },
+        RiskRule(
             "a11y_watch_sensitive",
             "접근성 서비스가 전화·설정·권한 화면이나 금융 앱을 콕 집어 지켜봄",
             35,
@@ -462,6 +485,18 @@ object RiskRules {
                 (i.requestsSmsRead || i.declaresAccessibility || i.declaresNotificationListener) &&
                 !comboSmsControl(it) && !comboUnknownA11yInstall(it)
         },
+        RiskRule(
+            ID_SIDELOADED_VPN,
+            "VPN 기능 앱을 파일로 설치",
+            20,
+            "휴대폰의 모든 인터넷 통신을 자기에게 돌려 엿보거나, 범인 서버로 가는 통신을 숨기고 보안 앱의 인터넷 차단을 풀 수 있습니다.",
+        ) { sideloadedVpn(it) },
+        RiskRule(
+            ID_SIDELOADED_VPN_ACTIVE,
+            "파일로 설치한 VPN 앱의 VPN이 지금 켜져 있음",
+            15,
+            "지금 이 순간 휴대폰 통신이 이 앱을 거쳐 나가고 있습니다. 모르는 앱이라면 VPN을 끄고 앱을 지우세요.",
+        ) { sideloadedVpn(it) && it.input.vpnActiveNow },
         RiskRule(
             ID_VENDOR_SIGNED,
             "제조사(기기) 서명 앱",

@@ -17,6 +17,10 @@ import android.view.accessibility.AccessibilityManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kr.phishguard.app.history.HistoryTracker
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import kr.phishguard.app.net.MonitorVpnService
+import kr.phishguard.app.net.VpnAllowList
 import kr.phishguard.app.net.UidUsage
 import kr.phishguard.app.net.UsageStats
 
@@ -199,6 +203,12 @@ object ScanRepository {
         val a11yServices: Map<String, A11yFacts>,
         /** NEW_OUTGOING_CALL 방송을 받는 리시버를 선언한 패키지 */
         val outgoingCallReceivers: Set<String>,
+        /** VpnService(BIND_VPN_SERVICE)를 선언한 시스템 외 패키지 (이 앱 제외) */
+        val vpnDeclarers: Set<String> = emptySet(),
+        /** 이 앱이 아닌 다른 앱의 VPN이 지금 켜져 있음 */
+        val otherVpnActive: Boolean = false,
+        /** 사용자가 고른 VPN 허용 앱 */
+        val vpnAllowed: Set<String> = emptySet(),
     ) {
         companion object {
             fun create(
@@ -241,7 +251,23 @@ object ScanRepository {
                     usage = usage,
                     a11yServices = a11yServicesOf(context),
                     outgoingCallReceivers = outgoingCallReceiversOf(pm),
+                    vpnDeclarers = VpnAllowList.vpnApps(context),
+                    otherVpnActive = otherVpnActive(context),
+                    vpnAllowed = VpnAllowList.run { load(context); allowed.value },
                 )
+            }
+
+            /** VPN 네트워크가 보이는데 이 앱의 차단 VPN이 꺼져 있으면 다른 앱의 VPN이다 */
+            private fun otherVpnActive(context: Context): Boolean = try {
+                val cm = context.getSystemService(ConnectivityManager::class.java)
+                @Suppress("DEPRECATION")
+                val vpnUp = cm?.allNetworks?.any { n ->
+                    cm.getNetworkCapabilities(n)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+                } == true
+                vpnUp && !MonitorVpnService.running.value
+            } catch (e: SecurityException) {
+                Log.w(TAG, "network query failed", e)
+                false
             }
 
             /**
@@ -492,6 +518,10 @@ object ScanRepository {
             declaresNotificationListener = perms.any { it.category == PermCategory.NOTIFICATION_LISTENER },
             fgsMediaProjection = fgsMediaProjection,
             fgsPhoneCall = fgsPhoneCall,
+            declaresVpnService = pkg in env.vpnDeclarers,
+            // 다른 앱의 VPN 주인은 공개 API로 알 수 없다: 일반 VPN 앱이 하나뿐일 때만 그 앱으로 본다
+            vpnActiveNow = env.otherVpnActive && env.vpnDeclarers == setOf(pkg),
+            vpnAllowedByUser = pkg in env.vpnAllowed,
         )
         // APK 파일 구조 검사는 IO 비용이 있으므로 신뢰할 수 없는 출처에만 (시간·항목 수 상한은 ApkInspector)
         val input = if (RuleContext(baseInput, now).untrustedOrigin) {
@@ -527,6 +557,7 @@ object ScanRepository {
             declaresCallScreening = declaresCallScreening,
             declaresInCallService = declaresInCall,
             vendorSigned = vendorSigned,
+            initiatingPackage = initiating,
         )
     }
 }

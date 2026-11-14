@@ -10,9 +10,11 @@ import android.net.VpnService
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Slider
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.runtime.mutableIntStateOf
 import kr.phishguard.app.guard.GuardPolicy
 import kr.phishguard.app.guard.LockOverlay
+import kr.phishguard.app.guard.OwnerMode
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
@@ -254,8 +256,32 @@ private fun ChildLinked(s: FamilyState) {
     }
     val who = s.otherName ?: "가족 폰"
     var cmdError by remember { mutableStateOf<String?>(null) }
+    // 삭제 요청·정지·관리 해제 명령 보내기 공용 (실패하면 다시 누를 수 있게 done(false))
+    val runCommand = { action: (Context) -> Unit, done: (Boolean) -> Unit ->
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) { action(context) }; cmdError = null
+                done(true)
+            } catch (e: IOException) {
+                Log.w("PG-Family", "command request failed", e); cmdError = errorMessage(e)
+                done(false)
+            }
+        }
+        Unit
+    }
+    val sendUninstall = { app: AlertApp, done: (Boolean) -> Unit -> runCommand({ FamilyController.sendUninstall(it, app) }, done) }
+    val sendSuspend = { app: AlertApp, suspend: Boolean, done: (Boolean) -> Unit ->
+        runCommand({ FamilyController.sendSuspend(it, app, suspend) }, done)
+    }
+    FamilyPolicy.pendingOwnerReleaseRequest(s.events)?.let { req ->
+        val unlink = req.data.optBoolean("unlink")
+        // 연결 끊기 요청을 승인하면 자녀 쪽에서 끊는다 → 부모 폰은 unlinked를 받고 소유자 모드를 푼다
+        OwnerReleaseRequestCard(who, unlink) { done ->
+            runCommand({ if (unlink) FamilyController.unlink(it) else FamilyController.sendReleaseOwner(it) }, done)
+        }
+    }
     FamilyPolicy.pendingDecisions(s.events).forEach { d ->
-        DecisionCard(d, who, now, onChoose = { type, done ->
+        DecisionCard(d, who, now, FamilyPolicy.uninstallStatus(s.events, d.app.packageName), sendUninstall, onChoose = { type, done ->
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) { FamilyController.sendCommand(context, type, d) }; cmdError = null
@@ -281,6 +307,10 @@ private fun ChildLinked(s: FamilyState) {
             Text("위험 높음 ${s.heartbeatHigh}개 · 중간 ${s.heartbeatMedium}개")
             Text(if (s.live) "실시간 연결됨" else "실시간 연결 끊김 — 다시 연결하는 중")
             if (silent) Text("하루 넘게 신호가 없습니다. 폰이 꺼졌거나 앱이 지워졌을 수 있으니 전화로 확인하세요.", color = MaterialTheme.colorScheme.error)
+            FamilyPolicy.recentVpnRevoke(s.events, now)?.let { t ->
+                Text("최근 ${ago(t, now)}: 부모 폰에서 다른 VPN 앱이 차단 VPN을 껐습니다. 전화로 확인하세요.", color = MaterialTheme.colorScheme.error)
+            }
+            if (s.parentOwnerMode) Text("기기 소유자 모드 켜짐: 확인 창 없이 삭제·정지할 수 있고, 부모 폰에서 이 앱을 지울 수 없습니다.")
             if (!s.parentGuardOn) {
                 Text(
                     "부모 폰의 실시간 설치 감지가 꺼져 있습니다. 알림이 최대 15분 늦을 수 있으니 부모 폰에서 피싱앱 검사기를 한 번 열어 달라고 하세요.",
@@ -304,7 +334,10 @@ private fun ChildLinked(s: FamilyState) {
                     "위험 ${a.riskLevel.label} · ${a.riskScore}점" + (if (a.remoteControl) " · 원격조종 앱" else ""),
                     color = if (a.riskLevel == RiskLevel.HIGH) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
+                Text("출처: ${a.originText()}", style = MaterialTheme.typography.bodySmall)
                 a.reasons.forEach { Text("· $it", style = MaterialTheme.typography.bodySmall) }
+                UninstallRequest(a, who, FamilyPolicy.uninstallStatus(s.events, a.packageName), sendUninstall)
+                if (s.parentOwnerMode) SuspendButtons(a, FamilyPolicy.suspendStatus(s.events, a.packageName), sendSuspend)
             }
         }
     }
@@ -319,10 +352,16 @@ private fun ChildLinked(s: FamilyState) {
             FamilyEvent.TYPE_PARENT_SILENT -> "하루 넘게 신호 없음"
             FamilyEvent.TYPE_PARENT_BACK -> "신호 다시 들어옴"
             FamilyEvent.TYPE_DECISION -> e.apps.firstOrNull()?.let { "결정 요청: ${it.label} (${it.riskScore}점)" }
+            FamilyEvent.TYPE_OWNER_RELEASE_REQUEST -> "부모 폰이 관리 모드 해제를 요청함"
+            FamilyEvent.TYPE_VPN_REVOKED -> "다른 VPN 앱이 차단 VPN을 끔"
             FamilyEvent.TYPE_COMMAND_SENT -> when (e.data.optString("type")) {
                 "lock" -> "보냄: 1시간 잠금 (${e.data.optString("label")})"
                 "block" -> "보냄: 인터넷만 차단 (${e.data.optString("label")})"
                 "ignore" -> "보냄: 무시 (${e.data.optString("label")})"
+                FamilyPolicy.TYPE_UNINSTALL -> "보냄: 삭제 요청 (${e.data.optString("label")})"
+                FamilyPolicy.TYPE_SUSPEND -> "보냄: 앱 정지 (${e.data.optString("label")})"
+                FamilyPolicy.TYPE_UNSUSPEND -> "보냄: 정지 해제 (${e.data.optString("label")})"
+                FamilyPolicy.TYPE_RELEASE_OWNER -> "보냄: 부모 폰 관리 모드 해제"
                 else -> null
             }
             FamilyEvent.TYPE_COMMAND_RESULT -> {
@@ -331,6 +370,9 @@ private fun ChildLinked(s: FamilyState) {
                     "lock" -> "잠금 $ok: ${e.data.optString("message")}"
                     "block" -> "차단 $ok: ${e.data.optString("message")}"
                     "auto_block" -> "답이 없어 자동 차단: ${e.data.optString("message")}"
+                    FamilyPolicy.TYPE_UNINSTALL -> "삭제 요청 (${e.data.optString("label")}): ${e.data.optString("message")}"
+                    FamilyPolicy.TYPE_SUSPEND, FamilyPolicy.TYPE_UNSUSPEND -> "정지/해제 (${e.data.optString("label")}): ${e.data.optString("message")}"
+                    FamilyPolicy.TYPE_RELEASE_OWNER -> "관리 모드 해제: ${e.data.optString("message")}"
                     else -> null
                 }
             }
@@ -364,10 +406,15 @@ private fun ParentLinked(s: FamilyState) {
             Text("${who}에게 연결됨", style = MaterialTheme.typography.titleMedium)
             Text("이 폰에 위험한 앱이 설치되면 ${who}에게 바로 알림이 갑니다.")
             Text("마지막으로 보낸 시각: ${fmt(s.lastSentAt)}")
+            Text(
+                "기기 소유자 모드: " + (if (OwnerMode.isOwner(context)) "켜짐" else "꺼짐 (설정 탭에서 켤 수 있음)"),
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
     s.lastError?.let { ErrorText(it) }
     BatteryOptimizationRow()
+    HideNotificationsRow()
     OutlinedButton(enabled = !busy, onClick = {
         busy = true
         scope.launch {
@@ -377,7 +424,49 @@ private fun ParentLinked(s: FamilyState) {
     }) { Text(if (busy) "보내는 중…" else "지금 상태 보내기") }
     GuardSettings(who)
     Text("모르는 사람이 '연결해 주겠다'며 PIN을 불러 주면 절대 입력하지 마세요. 연결 상대는 위에 보이는 이름 한 명뿐입니다.", style = MaterialTheme.typography.bodySmall)
-    UnlinkButton(onConfirm = { scope.launch { withContext(Dispatchers.IO) { FamilyController.unlink(context) } } })
+    if (FamilyPolicy.parentUnlink(OwnerMode.isOwner(context), s.paired) == FamilyPolicy.ParentUnlink.ASK_CHILD) {
+        ParentUnlinkRequest(who)
+    } else {
+        UnlinkButton(onConfirm = { scope.launch { withContext(Dispatchers.IO) { FamilyController.unlink(context) } } })
+    }
+}
+
+/** 부모 폰(기기 소유자 모드): 연결 끊기는 자녀 승인이 있어야 한다. 요청을 보내고 승인을 기다린다 */
+@Composable
+private fun ParentUnlinkRequest(who: String) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var requestedAt by remember { mutableLongStateOf(FamilyStore.unlinkRequestedAt(context)) }
+    var ask by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    TextButton(onClick = { ask = true }) {
+        Text(if (requestedAt > 0) "연결 끊기 다시 요청" else "연결 끊기", color = MaterialTheme.colorScheme.error)
+    }
+    if (requestedAt > 0) Text("${fmt(requestedAt)}에 ${who}에게 연결 끊기 승인을 요청했습니다. ${who}에서 승인하면 끊깁니다. (승인 대기 중)")
+    error?.let { ErrorText(it) }
+    if (ask) {
+        AlertDialog(
+            onDismissRequest = { ask = false },
+            title = { Text("연결 끊기를 요청할까요?") },
+            text = { Text("기기 소유자 모드가 켜져 있어 ${who}의 승인이 있어야 끊을 수 있습니다. ${who}에 요청을 보냅니다.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    ask = false
+                    scope.launch {
+                        error = try {
+                            withContext(Dispatchers.IO) { FamilyController.requestOwnerRelease(context, unlink = true) }
+                            requestedAt = FamilyStore.unlinkRequestedAt(context)
+                            null
+                        } catch (e: IOException) {
+                            Log.w("PG-Family", "unlink request failed", e)
+                            errorMessage(e)
+                        }
+                    }
+                }) { Text("요청 보내기") }
+            },
+            dismissButton = { TextButton(onClick = { ask = false }) { Text("취소") } },
+        )
+    }
 }
 
 @Composable
@@ -393,6 +482,48 @@ private fun UnlinkButton(onConfirm: () -> Unit) {
             dismissButton = { TextButton(onClick = { ask = false }) { Text("취소") } },
         )
     }
+}
+
+/**
+ * 부모 폰: 알림을 완전히 끄는 안내. 사기범이 원격으로 폰을 보며 눈에 띄는 앱을 지우기 때문.
+ * 알림을 꺼도 포그라운드 서비스(실시간 감지·연결)는 그대로 돈다 (Android 13+는 알림창에도 안 보임).
+ */
+@Composable
+private fun HideNotificationsRow() {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    var error by remember { mutableStateOf(false) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        }
+    }
+    SectionTitle("알림 완전히 숨기기")
+    Text(
+        "사기범은 원격으로 폰을 조종하면서 모르는 앱을 찾아 지웁니다. 이 폰에서는 원래 알림을 띄우지 않지만, " +
+            "'동기화 · 실행 중' 표시까지 없애려면 이 앱의 알림을 꺼 주세요. 알림을 꺼도 감지와 가족 연결은 계속 동작합니다.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    Text(
+        if (enabled) "지금: 알림 켜짐" else "지금: 알림 꺼짐 (숨김 완료)",
+        fontWeight = FontWeight.Bold,
+        color = if (enabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+    )
+    OutlinedButton(onClick = {
+        try {
+            context.startActivity(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            error = false
+        } catch (e: ActivityNotFoundException) {
+            Log.w("PG-Family", "notification settings not found", e)
+            error = true
+        }
+    }) { Text(if (enabled) "알림 끄러 가기" else "알림 설정 열기") }
+    if (error) ErrorText("설정 화면을 열 수 없습니다. 설정 → 애플리케이션 → 이 앱 → 알림에서 끄세요.")
 }
 
 @SuppressLint("BatteryLife")
@@ -441,13 +572,21 @@ private fun JoinRequestCard(parentName: String, onAnswer: (approve: Boolean, don
 }
 
 @Composable
-private fun DecisionCard(d: PendingDecision, who: String, now: Long, onChoose: (type: String, done: (ok: Boolean) -> Unit) -> Unit) {
+private fun DecisionCard(
+    d: PendingDecision,
+    who: String,
+    now: Long,
+    uninstallStatus: String?,
+    onUninstall: (AlertApp, (Boolean) -> Unit) -> Unit,
+    onChoose: (type: String, done: (ok: Boolean) -> Unit) -> Unit,
+) {
     var busy by remember(d.requestId) { mutableStateOf(false) }
     val left = d.autoBlockAt - now
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("⚠ 결정 필요: $who", style = MaterialTheme.typography.titleMedium)
             Text("${d.app.label} · 위험 ${d.app.riskScore}점", fontWeight = FontWeight.Bold)
+            Text("출처: ${d.app.originText()}", style = MaterialTheme.typography.bodySmall)
             if (d.reason == "surge") Text("점수가 ${d.previousScore}점에서 ${d.app.riskScore}점으로 급하게 올랐습니다.")
             d.app.reasons.forEach { Text("· $it", style = MaterialTheme.typography.bodySmall) }
             Text(
@@ -466,7 +605,75 @@ private fun DecisionCard(d: PendingDecision, who: String, now: Long, onChoose: (
                 Text("인터넷만 차단 (이 앱 + 텔레그램·LINE)")
             }
             TextButton(enabled = !busy, onClick = { choose("ignore") }) { Text("괜찮음 (무시)") }
+            UninstallRequest(d.app, who, uninstallStatus, onUninstall)
         }
+    }
+}
+
+/** 자녀: 기기 소유자 모드인 부모 폰의 앱 정지/해제. 정지된 앱은 실행되지 않지만 지워지지 않아 증거가 남는다 */
+@Composable
+private fun SuspendButtons(app: AlertApp, status: String?, onSend: (AlertApp, Boolean, (Boolean) -> Unit) -> Unit) {
+    var busy by remember(app.packageName) { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(enabled = !busy, onClick = { busy = true; onSend(app, true) { busy = false } }) { Text("정지") }
+        TextButton(enabled = !busy, onClick = { busy = true; onSend(app, false) { busy = false } }) { Text("정지 해제") }
+    }
+    status?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+}
+
+/** 자녀: 부모 폰이 기기 소유자 모드 해제를 요청함. 사기범이 시켰을 수 있으니 전화로 확인한 뒤 승인 */
+@Composable
+private fun OwnerReleaseRequestCard(who: String, unlink: Boolean, onApprove: (done: (Boolean) -> Unit) -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    var ask by remember { mutableStateOf(false) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(if (unlink) "연결 끊기 요청: $who" else "관리 모드 해제 요청: $who", style = MaterialTheme.typography.titleMedium)
+            if (unlink) Text("부모 폰에서 가족 연결을 끊어 달라고 합니다. 승인하면 연결이 끊기고 부모 폰의 기기 소유자 모드도 풀립니다.")
+            Text("부모 폰에서 기기 소유자 모드를 풀어 달라고 합니다. 풀면 부모 폰에서 이 앱을 지울 수 있게 되고, 확인 창 없는 삭제·정지를 못 합니다. 부모님이 직접 요청했는지 전화로 확인하세요.")
+            Button(enabled = !busy, onClick = { ask = true }) { Text(if (unlink) "연결 끊기 승인" else "해제 승인") }
+        }
+    }
+    if (ask) {
+        AlertDialog(
+            onDismissRequest = { ask = false },
+            title = { Text("관리 모드를 해제할까요?") },
+            text = { Text("사기범이 부모님께 시켜서 요청했을 수 있습니다. 부모님과 통화로 확인했을 때만 승인하세요.") },
+            confirmButton = { TextButton(onClick = { ask = false; busy = true; onApprove { busy = false } }) { Text("해제") } },
+            dismissButton = { TextButton(onClick = { ask = false }) { Text("취소") } },
+        )
+    }
+}
+
+/**
+ * 자녀: 부모 폰에 앱 삭제 요청. 일반 앱은 다른 앱을 몰래 지울 수 없어서, 부모 폰에 시스템 삭제 확인 창이 뜨고
+ * 옆에 있는 사람이 '확인'을 눌러야 지워진다. 결과는 아래 상태 줄과 알림으로 온다.
+ */
+@Composable
+private fun UninstallRequest(app: AlertApp, who: String, status: String?, onSend: (AlertApp, (Boolean) -> Unit) -> Unit) {
+    var ask by remember(app.packageName) { mutableStateOf(false) }
+    var busy by remember(app.packageName) { mutableStateOf(false) }
+    OutlinedButton(enabled = !busy, onClick = { ask = true }) { Text(if (busy) "보내는 중…" else "삭제 요청") }
+    status?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    if (ask) {
+        AlertDialog(
+            onDismissRequest = { ask = false },
+            title = { Text("'${app.label}' 삭제를 요청할까요?") },
+            text = {
+                Text(
+                    "${who}에 앱 삭제 확인 창이 뜹니다. 휴대폰이 앱을 몰래 지우는 것은 막혀 있어서, 부모님이나 옆에 있는 사람이 '확인'을 눌러야 지워집니다. " +
+                        "전화로 '지금 뜨는 창에서 확인을 누르세요'라고 알려 주세요. 2분 안에 지워졌는지 알려 드립니다.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    ask = false
+                    busy = true
+                    onSend(app) { busy = false }
+                }) { Text("삭제 요청") }
+            },
+            dismissButton = { TextButton(onClick = { ask = false }) { Text("취소") } },
+        )
     }
 }
 

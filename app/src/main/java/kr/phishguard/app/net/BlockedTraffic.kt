@@ -20,9 +20,11 @@ object BlockedTraffic {
     private const val FILE = "blocked_traffic.json"
     private const val MAX_ENTRIES = 500
     private const val FLUSH_MS = 30_000L
+    /** 해외 전송 차단으로 막힌 IPv4 연결: "foreign-tcp" / "foreign-udp" */
+    const val FOREIGN_PREFIX = "foreign-"
 
     data class Entry(
-        /** "dns" 또는 "tcp"/"udp"/"ip<번호>" */
+        /** "dns" 또는 "tcp"/"udp", 해외 전송 차단이면 "foreign-tcp"/"foreign-udp" */
         val kind: String,
         /** 도메인 이름 또는 "주소:포트" */
         val target: String,
@@ -73,10 +75,17 @@ object BlockedTraffic {
     private fun key(kind: String, target: String) = "$kind|$target"
 
     /** TUN에서 읽은 패킷 하나 (차단 VPN의 읽기 스레드에서 호출) */
-    fun onPacket(context: Context, buf: ByteArray, len: Int, blockedApps: Set<String>, now: Long = System.currentTimeMillis()) {
+    fun onPacket(
+        context: Context,
+        buf: ByteArray,
+        len: Int,
+        blockedApps: Set<String>,
+        foreignMode: Boolean = false,
+        now: Long = System.currentTimeMillis(),
+    ) {
         packetsSeen++
         val p = PacketParser.parse(buf, len) ?: return
-        val (kind, target) = when {
+        val (base, target) = when {
             p.dnsQuery != null -> "dns" to p.dnsQuery
             p.protocol == PacketParser.PROTO_TCP -> {
                 // 연결 시작(SYN)만 센다: 재전송·나머지 조각까지 세면 숫자가 부풀려진다
@@ -86,6 +95,8 @@ object BlockedTraffic {
             p.protocol == PacketParser.PROTO_UDP -> "udp" to hostPort(p)
             else -> return // ICMP 등은 기록하지 않음
         }
+        // 해외 차단 모드의 IPv4는 해외 대역으로 가는 것만 들어온다. IPv6는 국가와 상관없이 전부 막으므로 해외로 표시하지 않는다
+        val kind = if (foreignMode && base != "dns" && p.ipVersion == 4) "$FOREIGN_PREFIX$base" else base
         synchronized(lock) {
             val k = key(kind, target)
             val prev = entries[k]

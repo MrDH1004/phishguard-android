@@ -211,7 +211,7 @@ private fun HistoryRow(e: HistoryEvent, isInstalledNow: Boolean, onClick: (() ->
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         val time = formatTime(e.eventTime) + if (e.timeIsExact) "" else " (확인 시각)"
-        val source = e.installSource?.label
+        val source = e.installSource?.let { kr.phishguard.app.scan.InstallOrigin.describe(it, e.installer, e.initiating) }
         Text(
             if (source != null) "$time · $source" else time,
             style = MaterialTheme.typography.bodySmall,

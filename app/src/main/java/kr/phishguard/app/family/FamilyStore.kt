@@ -25,6 +25,8 @@ data class FamilyState(
     val heartbeatMedium: Int = 0,
     /** 자녀: 부모 폰의 실시간 설치 감지가 켜져 있는지 (마지막 신호 기준) */
     val parentGuardOn: Boolean = true,
+    /** 자녀: 부모 폰이 기기 소유자 모드인지 (마지막 신호 기준). 켜져 있으면 정지·해제 버튼을 보인다 */
+    val parentOwnerMode: Boolean = false,
     /** 자녀: 실시간 연결 상태 */
     val live: Boolean = false,
     /** 자녀: 받은 사건 (최신 100개) */
@@ -69,6 +71,7 @@ object FamilyStore {
                 heartbeatHigh = p.getInt("hb_high", 0),
                 heartbeatMedium = p.getInt("hb_medium", 0),
                 parentGuardOn = p.getBoolean("hb_guard", true),
+                parentOwnerMode = p.getBoolean("hb_owner", false),
                 events = parseEvents(p.getString("events", null)),
                 lastSentAt = p.getLong("last_sent", 0),
             )
@@ -137,6 +140,7 @@ object FamilyStore {
             heartbeatHigh = hb?.optInt("high") ?: cur.heartbeatHigh,
             heartbeatMedium = hb?.optInt("medium") ?: cur.heartbeatMedium,
             parentGuardOn = hb?.optBoolean("guardOn", true) ?: cur.parentGuardOn,
+            parentOwnerMode = hb?.optBoolean("ownerMode", false) ?: cur.parentOwnerMode,
             events = merge(cur.events, incoming),
             lastError = null,
         )
@@ -156,6 +160,7 @@ object FamilyStore {
             heartbeatHigh = hb?.optInt("high") ?: cur.heartbeatHigh,
             heartbeatMedium = hb?.optInt("medium") ?: cur.heartbeatMedium,
             parentGuardOn = hb?.optBoolean("guardOn", true) ?: cur.parentGuardOn,
+            parentOwnerMode = hb?.optBoolean("ownerMode", false) ?: cur.parentOwnerMode,
         )
     }
 
@@ -209,6 +214,13 @@ object FamilyStore {
 
     /** 자녀 폰이 연결을 승인함 */
     fun setApproved(context: Context, gen: Int) = mutate(context, gen) { it.copy(paired = true, lastError = null) }
+
+    /** 부모: 기기 소유자 모드에서 자녀에게 '연결 끊기' 승인을 요청한 시각 (0 = 없음). 연결이 끊기면 같이 지워짐 */
+    fun unlinkRequestedAt(context: Context): Long = prefs(context).getLong("unlink_req", 0)
+
+    fun setUnlinkRequested(context: Context, at: Long) {
+        prefs(context).edit().putLong("unlink_req", at).apply()
+    }
 
     fun lastCommandId(context: Context): Long = prefs(context).getLong("last_cmd", 0)
 
@@ -334,6 +346,7 @@ object FamilyStore {
             .putInt("hb_high", s.heartbeatHigh)
             .putInt("hb_medium", s.heartbeatMedium)
             .putBoolean("hb_guard", s.parentGuardOn)
+            .putBoolean("hb_owner", s.parentOwnerMode)
             .putString("events", arr.toString())
             .apply()
     }

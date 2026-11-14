@@ -10,6 +10,7 @@ import android.util.Log
 import kr.phishguard.app.family.FamilyController
 import kr.phishguard.app.net.BlockList
 import kr.phishguard.app.net.MonitorVpnService
+import kr.phishguard.app.net.VpnGuard
 
 /** 부팅/앱 업데이트 후 감시 작업 재예약, 차단 목록이 있으면 차단 VPN 복구 */
 class BootReceiver : BroadcastReceiver() {
@@ -21,7 +22,8 @@ class BootReceiver : BroadcastReceiver() {
         FamilyController.ensureServices(app)
 
         BlockList.load(app)
-        if (BlockList.blocked.value.isEmpty()) return
+        VpnGuard.load(app)
+        if (!BlockList.hasAny() && !VpnGuard.hold.value) return
         if (VpnService.prepare(app) != null) {
             Log.i(TAG, "VPN 동의 없음: 차단 복구 생략")
             return

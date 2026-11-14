@@ -79,6 +79,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
     val context = LocalContext.current
     val apps by ScanRepository.apps.collectAsState()
     val blocked by BlockList.blocked.collectAsState()
+    val foreign by BlockList.foreign.collectAsState()
     val trusted by TrustList.trusted.collectAsState()
     val running by MonitorVpnService.running.collectAsState()
     var hasAccess by remember { mutableStateOf(UsageStats.hasAccess(context)) }
@@ -131,8 +132,13 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionTitle("인터넷 차단", first = true)
+                    val foreignOnly = foreign - blocked
+                    val counts = buildString {
+                        append("${blocked.size}개 앱 차단")
+                        if (foreignOnly.isNotEmpty()) append(" · ${foreignOnly.size}개 앱 해외 전송 차단")
+                    }
                     Text(
-                        if (running) "켜짐 · ${blocked.size}개 앱 차단 중" else "꺼짐 · 차단 목록 ${blocked.size}개",
+                        if (running) "켜짐 · $counts 중" else "꺼짐 · 목록: $counts",
                         color = if (running) RiskLow else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (running) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -141,8 +147,20 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                         "차단 목록에 있는 앱만 인터넷이 끊깁니다. 다른 앱의 통신은 건드리지 않습니다.",
                         style = MaterialTheme.typography.bodySmall,
                     )
+                    Text(
+                        "해외 전송 차단: 한국 IP로 가는 통신은 그대로, 해외 서버로 가는 통신만 막습니다. " +
+                            "해외 서버를 쓰는 정상 기능(일부 광고·클라우드)도 막힐 수 있습니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    if (blocked.isNotEmpty() && foreignOnly.isNotEmpty()) {
+                        Text(
+                            "인터넷 차단 앱이 있는 동안에는 해외 전송 차단 앱도 인터넷 전체가 막힙니다 (VPN은 하나만 켤 수 있어서).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RiskMedium,
+                        )
+                    }
                     if (!running) {
-                        Button(onClick = startFirewall, enabled = blocked.isNotEmpty()) { Text("차단 켜기") }
+                        Button(onClick = startFirewall, enabled = blocked.isNotEmpty() || foreign.isNotEmpty()) { Text("차단 켜기") }
                     } else {
                         OutlinedButton(onClick = { MonitorVpnService.stop(context) }) { Text("차단 끄기") }
                     }
@@ -160,6 +178,23 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                             TextButton(
                                 onClick = { BlockList.set(context, pkg, false) },
                                 modifier = Modifier.semantics { contentDescription = "$label 차단 해제" },
+                            ) { Text("차단 해제") }
+                        }
+                    }
+                    foreignOnly.sorted().forEach { pkg ->
+                        val label = apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(label)
+                                Text(
+                                    "해외 전송 차단 중",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            TextButton(
+                                onClick = { BlockList.setForeign(context, pkg, false) },
+                                modifier = Modifier.semantics { contentDescription = "$label 해외 전송 차단 해제" },
                             ) { Text("차단 해제") }
                         }
                     }
@@ -216,7 +251,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
                     )
                 }
             }
-            items(rows, key = { it.uid }) { r -> UsageRowItem(r, blocked, onOpenApp) }
+            items(rows, key = { it.uid }) { r -> UsageRowItem(r, blocked, foreign, onOpenApp) }
         }
         item {
             Card(Modifier.fillMaxWidth()) {
@@ -252,7 +287,7 @@ fun MonitorScreen(onOpenApp: (String) -> Unit) {
 }
 
 @Composable
-private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) -> Unit) {
+private fun UsageRowItem(r: UsageRow, blocked: Set<String>, foreign: Set<String>, onOpenApp: (String) -> Unit) {
     val context = LocalContext.current
     val color = when (r.risk) {
         RiskLevel.HIGH -> RiskHigh
@@ -284,6 +319,17 @@ private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) 
                     Text("차단", style = MaterialTheme.typography.labelMedium)
                     Switch(checked = isBlocked, onCheckedChange = null)
                 }
+                Spacer(Modifier.width(8.dp))
+                val isForeign = pkg in foreign
+                Column(
+                    Modifier
+                        .toggleable(value = isForeign, role = Role.Switch, onValueChange = { BlockList.setForeign(context, pkg, it) })
+                        .semantics { contentDescription = "${r.label} 해외 전송 차단" },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("해외 차단", style = MaterialTheme.typography.labelMedium)
+                    Switch(checked = isForeign, onCheckedChange = null)
+                }
             }
             if (openable) {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
@@ -295,6 +341,12 @@ private fun UsageRowItem(r: UsageRow, blocked: Set<String>, onOpenApp: (String) 
     } else {
         Card(Modifier.fillMaxWidth()) { content() }
     }
+}
+
+private fun kindLabel(kind: String): String = when {
+    kind == "dns" -> "도메인 조회"
+    kind.startsWith(BlockedTraffic.FOREIGN_PREFIX) -> "해외 전송 차단 · ${kind.removePrefix(BlockedTraffic.FOREIGN_PREFIX).uppercase()}"
+    else -> kind.uppercase()
 }
 
 /** 차단된 앱이 접속하려던 곳 (차단 VPN 기록). 경찰 신고 때 범인 서버 주소의 근거가 된다 */
@@ -309,14 +361,14 @@ private fun BlockedTrafficCard() {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             SectionTitle("차단된 앱이 접속하려던 곳", first = true)
             Text(
-                "차단 중인 앱이 연결을 시도한 주소입니다. 도메인(이름)이 범인 서버일 수 있으니 신고할 때 증거 파일과 함께 내세요. 증거 ZIP에도 들어갑니다.",
+                "차단 중인 앱이 연결을 시도한 주소입니다. 해외 전송 차단으로 막힌 곳은 IP 주소만 남습니다. 도메인(이름)이 범인 서버일 수 있으니 신고할 때 증거 파일과 함께 내세요. 증거 ZIP에도 들어갑니다.",
                 style = MaterialTheme.typography.bodySmall,
             )
             list.take(15).forEach { e ->
                 Column {
                     Text(e.target, fontWeight = if (e.kind == "dns") FontWeight.Bold else FontWeight.Normal)
                     Text(
-                        "${if (e.kind == "dns") "도메인 조회" else e.kind.uppercase()} · ${e.count}회 · 마지막 ${fmt.format(java.util.Date(e.lastSeen))}",
+                        "${kindLabel(e.kind)} · ${e.count}회 · 마지막 ${fmt.format(java.util.Date(e.lastSeen))}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

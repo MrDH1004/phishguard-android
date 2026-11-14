@@ -22,6 +22,8 @@ data class SnapshotEntry(
     val riskLevel: RiskLevel,
     val riskScore: Int,
     val isSystem: Boolean,
+    /** 설치를 요청한 앱 (APK를 연 메신저·브라우저 등) */
+    val initiating: String? = null,
 )
 
 data class HistoryEvent(
@@ -36,6 +38,7 @@ data class HistoryEvent(
     val eventTime: Long,
     val timeIsExact: Boolean,
     val detectedAt: Long,
+    val initiating: String? = null,
 )
 
 /** 스냅샷 비교로 기록을 만드는 순수 로직 (Android 의존 없음). */
@@ -125,5 +128,6 @@ object HistoryDiff {
         eventTime = time,
         timeIsExact = exact,
         detectedAt = now,
+        initiating = e.initiating,
     )
 }

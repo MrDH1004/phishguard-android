@@ -12,6 +12,9 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.UUID
 import kr.phishguard.app.guard.GuardPolicy
+import kr.phishguard.app.guard.OwnerMode
+import kr.phishguard.app.net.VpnGuard
+import kotlin.concurrent.thread
 
 /** 부모 폰: 위험 앱 알림과 생존 신호를 자녀 폰으로 보낸다. IO 스레드에서 호출. */
 object FamilyReporter {
@@ -77,6 +80,8 @@ object FamilyReporter {
                 .put("appVersion", BuildConfig.VERSION_NAME)
                 // 실시간 설치 감지 서비스가 실제로 돌고 있는지 (꺼져 있으면 자녀 화면에 경고)
                 .put("guardOn", ParentGuardService.running)
+                // 기기 소유자 모드면 자녀 화면에 정지·해제 버튼을 보인다
+                .put("ownerMode", OwnerMode.isOwner(context))
             // 실시간 연결이 살아 있으면 서버가 ping 시각으로 생존을 안다 → 내용이 바뀌었을 때만 보낸다 (최대 12시간에 한 번은 보냄)
             val now = System.currentTimeMillis()
             val signature = hb.toString()
@@ -187,6 +192,27 @@ object FamilyReporter {
         val s = FamilyStore.state.value
         if (s.role != FamilyRole.PARENT || !s.paired) return null
         return FamilyStore.token(context)
+    }
+
+    /**
+     * 부모 폰: 다른 VPN 앱이 차단 VPN 자리를 가져가면 자녀에게 알린다. VPN 스레드에서 불리므로 전송은 별도 스레드에서.
+     * 부모 역할이 아니거나 연결 전이면 아무것도 안 함.
+     */
+    fun registerVpnRevokeListener() {
+        VpnGuard.onRevoked = { ctx, e ->
+            val app = ctx.applicationContext
+            thread(name = "pg-vpn-revoked", isDaemon = true) {
+                val token = parentToken(app) ?: return@thread
+                try {
+                    FamilyApi.post(token, FamilyEvent.TYPE_VPN_REVOKED, JSONObject().put("time", e.time).put("mode", e.mode))
+                } catch (ex: FamilyApiException) {
+                    handleError(app, ex)
+                } catch (ex: IOException) {
+                    // 다른 VPN이 켜진 직후라 인터넷이 막혔을 수 있다. 기록은 VpnGuard에 남아 있다
+                    Log.w(TAG, "VPN 해제 알림 전송 실패", ex)
+                }
+            }
+        }
     }
 
     /** 명령 실행 결과·자동 차단을 자녀에게 알림 */

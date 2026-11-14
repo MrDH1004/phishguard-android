@@ -73,6 +73,7 @@ object HistoryTracker {
         versionName = versionName,
         installer = installerPackage,
         installSource = installSource,
+        initiating = initiatingPackage,
         firstInstallTime = firstInstallTime,
         lastUpdateTime = lastUpdateTime,
         riskLevel = riskLevel,

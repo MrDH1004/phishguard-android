@@ -2,6 +2,7 @@ package kr.phishguard.app.report
 
 import kr.phishguard.app.history.HistoryEvent
 import kr.phishguard.app.scan.AppInfo
+import kr.phishguard.app.scan.InstallOrigin
 import kr.phishguard.app.scan.RiskLevel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,7 +64,7 @@ object ReportBuilder {
             "<td>${escape(a.riskLevel.label)} (${a.riskScore}점)</td>" +
             "<td>$rules</td>" +
             "<td>${escape(fmt(a.firstInstallTime))}</td>" +
-            "<td>${escape(a.installSource.label)}<br><span class=\"m\">${escape(a.installerPackage)}</span></td>" +
+            "<td>${escape(InstallOrigin.describe(a.installSource, a.installerPackage, a.initiatingPackage))}</td>" +
             "<td>${escape(flagsOf(a))}</td></tr>\n"
     }
 

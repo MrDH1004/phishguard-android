@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import kr.phishguard.app.net.UsageStats
 import kr.phishguard.app.report.Hashing
 import kr.phishguard.app.scan.AppInfo
+import kr.phishguard.app.scan.InstallOrigin
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -120,6 +121,8 @@ object EvidenceExporter {
             .put("lastUpdateTime", fmt.format(Date(app.lastUpdateTime)))
             .put("installerPackage", app.installerPackage ?: JSONObject.NULL)
             .put("installSource", app.installSource.label)
+            .put("initiatingPackage", app.initiatingPackage ?: JSONObject.NULL)
+            .put("installOrigin", InstallOrigin.describe(app.installSource, app.installerPackage, app.initiatingPackage))
             .put("hasLauncherIcon", app.hasLauncherIcon)
             .put("riskScore", app.riskScore).put("riskLevel", app.riskLevel.label)
             .put("matchedRules", rules)

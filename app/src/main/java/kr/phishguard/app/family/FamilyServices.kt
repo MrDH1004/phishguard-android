@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kr.phishguard.app.guard.GuardController
 import kr.phishguard.app.guard.LockOverlay
+import kr.phishguard.app.guard.OwnerMode
 import kr.phishguard.app.scan.ScanRepository
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -305,6 +306,10 @@ class ParentGuardService : Service() {
         }
         if (!startForegroundCompat(NOTI_ID, "가족 보호 켜짐", ongoingText(), FamilyRole.PARENT)) return START_NOT_STICKY
         running = true
+        // 다른 VPN이 차단 VPN을 끄면 자녀에게 알림 (VPN 서비스가 같은 프로세스에서 부름)
+        FamilyReporter.registerVpnRevokeListener()
+        // 기기 소유자 모드면 이 앱 삭제를 막아 둔다 (켜져 있지 않으면 아무것도 안 함)
+        OwnerMode.protectSelf(applicationContext)
         // 재부팅·앱 재시작 뒤 잠금이 남아 있으면 다시 덮는다
         LockOverlay.restoreIfActive(applicationContext)
         if (receiver == null) {

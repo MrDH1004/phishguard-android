@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import kr.phishguard.app.guard.GuardController
+import kr.phishguard.app.guard.OwnerMode
 import kr.phishguard.app.scan.ScanRepository
 import java.io.IOException
 
@@ -67,6 +68,53 @@ object FamilyController {
         }
     }
 
+    /** 자녀: 부모 폰에 앱 삭제 요청. 부모 폰이 시스템 삭제 확인 창을 띄우고 옆 사람이 '확인'을 눌러야 지워진다 */
+    fun sendUninstall(context: Context, app: AlertApp) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            // 결정 요청 번호를 넣지 않는다: v1.3.x 부모 폰이 열린 결정을 이 명령으로 닫아 버리지 않게
+            FamilyApi.command(token, FamilyPolicy.TYPE_UNINSTALL, "", app.packageName, app.label)
+            pollChild(context)
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
+    /** 자녀: 앱 정지(suspend) / 정지 해제(unsuspend) — 부모 폰이 기기 소유자 모드일 때만 */
+    fun sendSuspend(context: Context, app: AlertApp, suspend: Boolean) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            val type = if (suspend) FamilyPolicy.TYPE_SUSPEND else FamilyPolicy.TYPE_UNSUSPEND
+            FamilyApi.command(token, type, "", app.packageName, app.label)
+            pollChild(context)
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
+    /** 자녀: 부모 폰의 기기 소유자 모드 해제 승인 */
+    fun sendReleaseOwner(context: Context) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            FamilyApi.command(token, FamilyPolicy.TYPE_RELEASE_OWNER, "", "", "")
+            pollChild(context)
+        } catch (e: FamilyApiException) {
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
+    /** 부모: 기기 소유자 모드 해제를 자녀 폰에 요청 (이 폰에서 혼자 풀 수 없게) */
+    fun requestOwnerRelease(context: Context, unlink: Boolean = false) {
+        val token = FamilyStore.token(context) ?: return
+        try {
+            FamilyApi.post(token, FamilyEvent.TYPE_OWNER_RELEASE_REQUEST, org.json.JSONObject().put("unlink", unlink))
+            if (unlink) FamilyStore.setUnlinkRequested(context, System.currentTimeMillis())
+        } catch (e: FamilyApiException) {
+            // 서버가 "없는 연결"(401 unknown_token)이라고 할 때만 끊긴 것으로 본다. 네트워크 실패(IOException)는 그대로 던진다
+            if (e.unlinked) onRemoteUnlinked(context) else throw e
+        }
+    }
+
     /** 부모: 실시간 연결이 끊겨 있을 때 주기 작업에서 승인·명령을 받아 처리 */
     fun pollParent(context: Context) {
         val token = FamilyStore.token(context) ?: return
@@ -91,7 +139,17 @@ object FamilyController {
 
     /** 이 폰에서 연결 끊기. 서버에 못 알리면 나중에 다시 알리고, 이 폰의 연결 정보는 바로 지운다 */
     fun unlink(context: Context) {
+        val s = FamilyStore.state.value
+        if (s.role == FamilyRole.PARENT &&
+            FamilyPolicy.parentUnlink(OwnerMode.isOwner(context), s.paired) == FamilyPolicy.ParentUnlink.ASK_CHILD
+        ) {
+            // 어느 경로로 불려도 혼자 끊지 않는다 (화면은 requestOwnerRelease(unlink = true)를 부름)
+            Log.w(TAG, "기기 소유자 모드: 부모 폰 단독 연결 끊기 거부, 자녀 승인 필요")
+            return
+        }
         val token = FamilyStore.token(context)
+        // 가족 연결을 끊으면 기기 소유자 모드도 내려놓는다 (지켜볼 사람이 없는데 이 앱을 못 지우는 상태가 되지 않게)
+        OwnerMode.release(context)
         stopServices(context)
         FamilyStore.clear(context)
         if (token != null) {
@@ -108,10 +166,10 @@ object FamilyController {
 
     /** 상대가 끊었거나 서버에서 사라짐 */
     fun onRemoteUnlinked(context: Context) {
-        val wasParent = FamilyStore.state.value.role == FamilyRole.PARENT
+        // 예전에는 부모 폰에 "연결이 끊겼습니다" 알림을 띄웠지만 부모 폰은 알림을 띄우지 않는다 (QuietMode)
+        OwnerMode.release(context)
         stopServices(context)
         FamilyStore.clear(context)
-        if (wasParent) FamilyNotify.post(context, 3999, "가족 연결이 끊겼습니다", "이제 위험 알림을 가족에게 보내지 않습니다")
     }
 
     /**
@@ -122,6 +180,7 @@ object FamilyController {
         val app = context.applicationContext
         FamilyStore.ensureLoaded(app)
         val role = FamilyStore.state.value.role
+        if (role == FamilyRole.PARENT) FamilyReporter.registerVpnRevokeListener()
         val cls = when (role) {
             FamilyRole.PARENT -> ParentGuardService::class.java
             FamilyRole.CHILD -> ChildWatchService::class.java

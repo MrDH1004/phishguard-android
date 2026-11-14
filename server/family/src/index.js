@@ -22,6 +22,7 @@ const SILENT_AFTER_MS = 24 * HOUR;
 const ALARM_EVERY_MS = HOUR;
 const MAX_EVENTS = 200;
 const MAX_BODY = 32 * 1024;
+const UNINSTALL_DEDUPE_MS = 60 * 1000;
 
 // ---- 공용 ----
 
@@ -521,8 +522,16 @@ export class Family extends DurableObject {
         const prev = await this.ctx.storage.get(`cmdreq:${c.data.requestId}`);
         if (prev) return json({ ok: true, id: prev, duplicate: true });
       }
+      // 삭제 요청은 결정 요청 번호가 없다: 같은 앱에 1분 안에 다시 보내면 하나로 (두 번 눌러 삭제 창이 두 번 뜨지 않게)
+      const uniKey = c.type === "uninstall" ? `cmduni:${c.data.packageName}` : null;
+      if (uniKey) {
+        if (!c.data.packageName) throw new HttpError(400, "bad_command", "앱이 지정되지 않았습니다");
+        const prev = await this.ctx.storage.get(uniKey);
+        if (prev && now - prev.ts < UNINSTALL_DEDUPE_MS) return json({ ok: true, id: prev.id, duplicate: true });
+      }
       const cmd = await this.addCommand(c.type, c.data);
       if (c.data.requestId) await this.ctx.storage.put(`cmdreq:${c.data.requestId}`, cmd.id);
+      if (uniKey) await this.ctx.storage.put(uniKey, { id: cmd.id, ts: cmd.ts });
       await this.addEvent("command_sent", { commandId: cmd.id, type: c.type, ...c.data });
       return json({ ok: true, id: cmd.id });
     }
@@ -538,6 +547,14 @@ export class Family extends DurableObject {
         decision: sanitizeDecision,
         command_result: sanitizeCommandResult,
         alerts: sanitizeAlerts,
+        // v1.3.2+: 부모 폰이 기기 소유자 모드 해제를 자녀에게 요청 (자녀가 release_owner 명령으로 승인)
+        // unlink=true: 기기 소유자 모드인 부모 폰의 '연결 끊기' 요청 (자녀가 승인하면 자녀 쪽에서 끊음)
+        owner_release_request: (d) => ({ unlink: !!(d && d.unlink === true) }),
+        // v1.3.2+: 부모 폰에서 다른 VPN 앱이 차단 VPN 자리를 가져감
+        vpn_revoked: (d) => ({
+          time: Number.isFinite(d && d.time) ? d.time : Date.now(),
+          mode: cleanText(d && d.mode, 20),
+        }),
       };
       if (!Object.prototype.hasOwnProperty.call(handlers, type)) throw new HttpError(400, "bad_type", "알 수 없는 종류");
       const data = handlers[type] ? handlers[type](body.data) : null;
@@ -648,6 +665,9 @@ function sanitizeApp(a) {
     firstInstallTime: Number.isFinite(a.firstInstallTime) ? a.firstInstallTime : 0,
     reasons: Array.isArray(a.reasons) ? a.reasons.slice(0, 5).map((r) => cleanText(r, 120)).filter(Boolean) : [],
     remoteControl: a.remoteControl === true,
+    // v1.3.2+: 설치 출처 (Play 스토어 / 직접 설치한 파일을 연 앱). 옛 앱은 보내지 않음 → 빈 문자열
+    installerPackage: cleanText(a.installerPackage, 200),
+    initiatingPackage: cleanText(a.initiatingPackage, 200),
   };
 }
 
@@ -668,7 +688,10 @@ function sanitizeSnapshot(d) {
   return { apps, scannedAt: Number.isFinite(d && d.scannedAt) ? d.scannedAt : Date.now() };
 }
 
-const COMMANDS = new Set(["lock", "block", "ignore"]);
+// v1.3.2+: uninstall(삭제 요청), suspend/unsuspend(앱 정지/해제), release_owner(기기 소유자 모드 해제 승인).
+// v1.3.x 부모 폰은 결정 요청 번호가 없는 명령을 실행하지 않고 실패로 알린다
+const COMMANDS = new Set(["lock", "block", "ignore", "uninstall", "suspend", "unsuspend", "release_owner"]);
+const UNINSTALL_STAGES = new Set(["prompt", "removed", "not_removed", "refused"]);
 
 function sanitizeCommand(b) {
   const type = b && b.type;
@@ -707,6 +730,7 @@ function sanitizeCommandResult(d) {
     packageName: cleanText(o.packageName, 200),
     label: cleanText(o.label, 80),
     lockUntil: Number.isFinite(o.lockUntil) ? o.lockUntil : 0,
+    stage: UNINSTALL_STAGES.has(o.stage) ? o.stage : "",
   };
 }
 
@@ -718,5 +742,6 @@ function sanitizeHeartbeat(d) {
     medium: n(o.medium),
     appVersion: cleanText(o.appVersion, 20),
     guardOn: o.guardOn !== false,
+    ownerMode: o.ownerMode === true,
   };
 }

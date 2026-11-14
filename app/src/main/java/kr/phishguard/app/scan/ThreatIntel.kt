@@ -62,7 +62,17 @@ object ThreatIntel {
         "com.towneers.www" to setOf("7f1261cd434e5ae1706fd3feb4762db346a20c8cdaf5c0fce49a91f61dd3e68d"),
     )
 
-    fun isOfficialPackage(packageName: String): Boolean = packageName in OFFICIAL_SIGNERS
+    fun isOfficialPackage(packageName: String): Boolean =
+        packageName in OFFICIAL_SIGNERS || packageName.lowercase() in OfficialApps.PACKAGES
+
+    /**
+     * 공식 앱(은행·카드·정부·원격지원 등, Play에서 확인한 목록)의 이름을 그대로 쓰는데 패키지명이 그 이름의 어떤 공식 앱과도 다름.
+     * 서명을 몰라도 판단한다 (서명까지 아는 앱은 isOfficialLabelSpoof가 더 강하게 잡는다).
+     */
+    fun isOfficialNameOtherPackage(packageName: String, label: String): Boolean {
+        val owners = OfficialApps.LABELS[normalizeLabel(label)] ?: return false
+        return packageName.lowercase() !in owners
+    }
 
     /** 공식 앱 패키지명인데 서명이 공식 서명과 하나도 안 맞음. 서명을 못 읽었으면(빈 집합) 판단하지 않음 */
     fun isOfficialSignerMismatch(packageName: String, signerDigests: Set<String>): Boolean {
@@ -118,6 +128,7 @@ object ThreatIntel {
      */
     fun isSensitiveWatchTarget(packageName: String): Boolean =
         packageName in SENSITIVE_WATCH_PACKAGES || packageName in OFFICIAL_SIGNERS ||
+            packageName.lowercase() in OfficialApps.PACKAGES ||
             packageName.lowercase().contains("bank")
 
     // ---- 원격조종 앱 ----
@@ -137,7 +148,7 @@ object ThreatIntel {
     fun isRemoteControl(packageName: String, label: String): Boolean {
         val pkg = packageName.lowercase()
         val lbl = label.lowercase()
-        return REMOTE_CONTROL_PREFIXES.any { pkg.startsWith(it) } ||
+        return pkg in OfficialApps.REMOTE || REMOTE_CONTROL_PREFIXES.any { pkg.startsWith(it) } ||
             REMOTE_CONTROL_LABEL_KEYWORDS.any { lbl.contains(it) }
     }
 

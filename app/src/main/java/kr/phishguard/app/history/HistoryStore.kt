@@ -110,6 +110,7 @@ object HistoryStore {
                     put("label", e.label)
                     putOpt("versionName", e.versionName)
                     putOpt("installer", e.installer)
+                    putOpt("initiating", e.initiating)
                     put("installSource", e.installSource.name)
                     put("firstInstallTime", e.firstInstallTime)
                     put("lastUpdateTime", e.lastUpdateTime)
@@ -128,6 +129,7 @@ object HistoryStore {
                     putOpt("label", e.label)
                     putOpt("versionName", e.versionName)
                     putOpt("installer", e.installer)
+                    putOpt("initiating", e.initiating)
                     putOpt("installSource", e.installSource?.name)
                     putOpt("riskLevel", e.riskLevel?.name)
                     put("eventTime", e.eventTime)
@@ -150,6 +152,7 @@ object HistoryStore {
                     label = e.optString("label", pkg),
                     versionName = e.optStringOrNull("versionName"),
                     installer = e.optStringOrNull("installer"),
+                    initiating = e.optStringOrNull("initiating"),
                     installSource = enumOrNull<InstallSource>(e.optStringOrNull("installSource")) ?: InstallSource.UNKNOWN,
                     firstInstallTime = e.optLong("firstInstallTime"),
                     lastUpdateTime = e.optLong("lastUpdateTime"),
@@ -173,6 +176,7 @@ object HistoryStore {
                     label = e.optStringOrNull("label"),
                     versionName = e.optStringOrNull("versionName"),
                     installer = e.optStringOrNull("installer"),
+                    initiating = e.optStringOrNull("initiating"),
                     installSource = enumOrNull<InstallSource>(e.optStringOrNull("installSource")),
                     riskLevel = enumOrNull<RiskLevel>(e.optStringOrNull("riskLevel")),
                     eventTime = e.optLong("eventTime"),

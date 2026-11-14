@@ -1,0 +1,3761 @@
+[
+ {
+  "category": "remote",
+  "labels": [
+   "TeamViewer QuickSupport",
+   "팀뷰어",
+   "팀뷰어 퀵서포트",
+   "퀵서포트",
+   "QuickSupport",
+   "TeamViewer"
+  ],
+  "package": "com.teamviewer.quicksupport.market",
+  "developer": "TeamViewer",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "TeamViewer Remote Control",
+   "팀뷰어",
+   "TeamViewer"
+  ],
+  "package": "com.teamviewer.teamviewer.market.mobile",
+  "developer": "TeamViewer",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "TeamViewer Host",
+   "팀뷰어 호스트"
+  ],
+  "package": "com.teamviewer.host.market",
+  "developer": "TeamViewer",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "TeamViewer Universal Add-On",
+   "팀뷰어 애드온",
+   "TeamViewer Add-On"
+  ],
+  "package": "com.teamviewer.quicksupport.addon.universal",
+  "developer": "TeamViewer",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "TeamViewer Assist AR (Pilot)",
+   "TeamViewer Assist AR"
+  ],
+  "package": "com.teamviewer.pilot",
+  "developer": "TeamViewer",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AnyDesk 원격제어 프로그램",
+   "애니데스크",
+   "AnyDesk"
+  ],
+  "package": "com.anydesk.anydeskandroid",
+  "developer": "AnyDesk Software GmbH",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AnyDesk 플러그인 ad1",
+   "애니데스크 플러그인",
+   "AnyDesk plugin"
+  ],
+  "package": "com.anydesk.adcontrol.ad1",
+  "developer": "AnyDesk Software GmbH",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "모바일 지원 - AnySupport",
+   "애니서포트",
+   "AnySupport",
+   "모바일 지원"
+  ],
+  "package": "net.koino.anysupportMobile",
+  "developer": "KOINO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Add-On:Universal - 애니서포트",
+   "애니서포트 애드온"
+  ],
+  "package": "net.koino.anysupport.addon.universal",
+  "developer": "KOINO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Add-On:LG - 애니서포트",
+   "애니서포트 애드온 LG"
+  ],
+  "package": "net.koino.anysupport.addon.LG",
+  "developer": "KOINO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "PCAnypro",
+   "PC애니프로"
+  ],
+  "package": "net.koino.PCAny",
+  "developer": "KOINO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "하나증권 원격지원"
+  ],
+  "package": "net.koino.anysupportMobile.hanaw",
+  "developer": "KOINO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "iM뱅크 원격지원",
+   "대구은행 원격지원"
+  ],
+  "package": "net.koino.anysupportMobile.dgbbank",
+  "developer": "아이엠뱅크(주)",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "모바일 지원 - 리모트콜",
+   "리모트콜",
+   "RemoteCall",
+   "모바일 지원",
+   "알서포트"
+  ],
+  "package": "com.rsupport.rs.activity.rsupport",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "모바일 지원(삼성) - 리모트콜",
+   "리모트콜 삼성",
+   "모바일 지원(삼성)"
+  ],
+  "package": "com.rsupport.rs.activity.rsupport.sec",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "리모트콜",
+   "RemoteCall"
+  ],
+  "package": "com.rsupport.remotecall.rtc.host",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "영상 지원 - 리모트콜",
+   "영상 지원",
+   "리모트콜 영상"
+  ],
+  "package": "com.rsupport.rtc.rsup",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "리모트뷰 - RemoteView 원격 제어 서비스",
+   "리모트뷰",
+   "RemoteView"
+  ],
+  "package": "rsupport.AndroidViewer",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "리모트뷰 에이전트 - RemoteView Agent",
+   "리모트뷰 에이전트",
+   "RemoteView Agent"
+  ],
+  "package": "com.rsupport.mobile.agent",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Plugin:RSAssistant",
+   "RSAssistant",
+   "알서포트 플러그인"
+  ],
+  "package": "com.rsupport.android.plugin.assistant",
+  "developer": "RSUPPORT Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "갤럭시 원격 서비스",
+   "삼성 원격상담"
+  ],
+  "package": "com.rsupport.rs.activity.rsupport.aas2",
+  "developer": "Samsung Electronics Co.,  Ltd.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "경남은행 원격 상담"
+  ],
+  "package": "com.rsupport.rs.activity.knb2",
+  "developer": "경남은행",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "BNK부산은행 원격지원",
+   "부산은행 원격지원"
+  ],
+  "package": "com.busanbank.remote",
+  "developer": "부산은행",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "HelpU 원격지원",
+   "헬프유",
+   "HelpU",
+   "헬프유 원격지원"
+  ],
+  "package": "kr.co.helpu.host",
+  "developer": "helpU Inc.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "HelpU Add-On:Universal",
+   "헬프유 애드온"
+  ],
+  "package": "kr.co.helpu.addon.universal",
+  "developer": "helpU Inc.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "원격지원 ezHelp",
+   "이지헬프",
+   "ezHelp"
+  ],
+  "package": "com.midassoft.ezhelp",
+  "developer": "midassoft",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "이지모바일 - 모바일 지원",
+   "이지모바일",
+   "ezMobile"
+  ],
+  "package": "com.midassoft.ezmobileandroid",
+  "developer": "midassoft",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "이지모바일(제조사 전용) - 모바일 지원",
+   "이지모바일(제조사 전용)"
+  ],
+  "package": "com.midassoft.ezmobilesamsung1",
+  "developer": "midassoft",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "이지리모트 - ezRemote 원격제어 서비스",
+   "이지리모트",
+   "ezRemote"
+  ],
+  "package": "com.midassoft.ezremote",
+  "developer": "midassoft",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "스마트 원격 지원"
+  ],
+  "package": "net.wins.rsm",
+  "developer": "WINZ Corp.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Chrome 원격 데스크톱",
+   "크롬 원격 데스크톱",
+   "Chrome Remote Desktop"
+  ],
+  "package": "com.google.chromeremotedesktop",
+  "developer": "Google LLC",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Splashtop SOS – Remote Support",
+   "스플래시탑",
+   "Splashtop SOS"
+  ],
+  "package": "com.splashtop.sos",
+  "developer": "Splashtop",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Splashtop Personal",
+   "스플래시탑",
+   "Splashtop"
+  ],
+  "package": "com.splashtop.remote.pad.v2",
+  "developer": "Splashtop",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Splashtop Business"
+  ],
+  "package": "com.splashtop.remote.business",
+  "developer": "Splashtop",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Splashtop Streamer"
+  ],
+  "package": "com.splashtop.streamer.csrs",
+  "developer": "Splashtop",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Splashtop Add-on: Samsung",
+   "Splashtop Add-on Samsung"
+  ],
+  "package": "com.splashtop.streamer.addon.knox",
+  "developer": "Splashtop",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AirDroid: 원격 액세스 / 파일 전송",
+   "에어드로이드",
+   "AirDroid"
+  ],
+  "package": "com.sand.airdroid",
+  "developer": "SAND STUDIO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AirDroid Remote Support",
+   "에어드로이드 원격지원"
+  ],
+  "package": "com.sand.airsos",
+  "developer": "SAND STUDIO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AirMirror: Remote control",
+   "에어미러",
+   "AirMirror"
+  ],
+  "package": "com.sand.airmirror",
+  "developer": "SAND STUDIO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AirDroid Business Daemon",
+   "AirDroid Business"
+  ],
+  "package": "com.sand.airdroidbiz",
+  "developer": "SAND STUDIO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AirDroid Parental Control",
+   "에어드로이드 키즈"
+  ],
+  "package": "com.sand.airdroidkidp",
+  "developer": "SAND STUDIO",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Windows App",
+   "원격 데스크톱",
+   "Microsoft Remote Desktop"
+  ],
+  "package": "com.microsoft.rdc.androidx",
+  "developer": "Microsoft Corporation",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "RealVNC Viewer: Remote Desktop",
+   "VNC Viewer",
+   "RealVNC"
+  ],
+  "package": "com.realvnc.viewer.android",
+  "developer": "RealVNC Limited",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "RealVNC Server",
+   "VNC 서버"
+  ],
+  "package": "com.realvnc.server",
+  "developer": "RealVNC Limited",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "droidVNC-NG VNC 서버",
+   "droidVNC-NG",
+   "VNC 서버"
+  ],
+  "package": "net.christianbeier.droidvnc_ng",
+  "developer": "Christian Beier",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "bVNC: Secure VNC Viewer",
+   "bVNC"
+  ],
+  "package": "com.iiordanov.freebVNC",
+  "developer": "Iordan Iordanov (Undatech)",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Customer App - Zoho Assist",
+   "Zoho Assist"
+  ],
+  "package": "com.zoho.assist.agent",
+  "developer": "Zoho Corporation",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Zoho Assist - Remote Desktop",
+   "Zoho Assist"
+  ],
+  "package": "com.zoho.assist",
+  "developer": "Zoho Corporation",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "LogMeIn Rescue Customer",
+   "LogMeIn Rescue"
+  ],
+  "package": "com.logmein.rescuemobile",
+  "developer": "GoTo Group, Inc.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "LogMeIn Pro & Central",
+   "LogMeIn"
+  ],
+  "package": "com.logmein.ignitionpro.android",
+  "developer": "GoTo Group, Inc.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "LogMeIn Resolve"
+  ],
+  "package": "com.goto.resolve.customer",
+  "developer": "GoTo Group, Inc.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Supremo Remote Desktop",
+   "Supremo"
+  ],
+  "package": "it.nanosystems.Supremo",
+  "developer": "Nanosystems",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Supremo Mobile Assist"
+  ],
+  "package": "it.nanosystems.supremo.host",
+  "developer": "Nanosystems",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "DWService"
+  ],
+  "package": "net.dwservice.client",
+  "developer": "DWSNET",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "RemotePC Viewer",
+   "RemotePC"
+  ],
+  "package": "com.prosoftnet.rpcnew",
+  "developer": "IDrive Inc",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "RemotePC Host"
+  ],
+  "package": "com.remotepc.host",
+  "developer": "IDrive Inc",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Getscreen.me - Agent",
+   "Getscreen"
+  ],
+  "package": "me.getscreen.agent",
+  "developer": "Getscreen Software",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "ISL Light Remote Desktop",
+   "ISL Light"
+  ],
+  "package": "com.islonline.isllight.mobile.android",
+  "developer": "ISL Online",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "ScreenConnect",
+   "ConnectWise"
+  ],
+  "package": "com.screenconnect.androidclient",
+  "developer": "ConnectWise",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "BeyondTrust Support",
+   "Bomgar"
+  ],
+  "package": "com.bomgar.thinclient.android",
+  "developer": "BeyondTrust Corporation",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "AweSun Remote Desktop",
+   "AweSun",
+   "向日葵"
+  ],
+  "package": "com.awesun.remote",
+  "developer": "AWERAY PTE. LTD.",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "StarDesk - 원격 데스크톱",
+   "StarDesk"
+  ],
+  "package": "com.stardesk",
+  "developer": "GearUP Global",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "desk-in"
+  ],
+  "package": "com.deskin.app",
+  "developer": "TIME Proje Yönetimi",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "Remote Support for Samsung SDS",
+   "Samsung SDS Remote Support"
+  ],
+  "package": "com.sds.emm.ors",
+  "developer": "Samsung EMM",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "ApowerMirror-PC/TV/전화용 화면 미러링",
+   "ApowerMirror",
+   "미러링"
+  ],
+  "package": "com.apowersoft.mirror",
+  "developer": "WangxuTech",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "모비즌 스크린 레코더 - 화면녹화/캡처/자동클릭/GIF",
+   "모비즌",
+   "Mobizen"
+  ],
+  "package": "com.rsupport.mvagent",
+  "developer": "MOBIZEN",
+  "verified": true
+ },
+ {
+  "category": "remote",
+  "labels": [
+   "모비즌 스크린 레코더 (삼성전용)",
+   "모비즌 삼성"
+  ],
+  "package": "com.rsupport.mobizen.sec",
+  "developer": "MOBIZEN",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KB스타뱅킹-신분증, 결제, 통신도 다 되는 은행",
+   "KB스타뱅킹",
+   "국민은행",
+   "KB국민은행",
+   "스타뱅킹"
+  ],
+  "package": "com.kbstar.kbbank",
+  "developer": "KB국민은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KB스타기업뱅킹",
+   "국민은행 기업"
+  ],
+  "package": "com.kbstar.kbbiz",
+  "developer": "KB국민은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KB리브모바일 - 국민은행, 알뜰, 리브, liiv",
+   "KB리브모바일",
+   "리브모바일"
+  ],
+  "package": "com.kbstar.liivmobile",
+  "developer": "KB국민은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "리브똑똑 (Liiv TalkTalk)",
+   "리브똑똑"
+  ],
+  "package": "com.kbstar.liivtalk",
+  "developer": "KB국민은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KB 제로페이Biz"
+  ],
+  "package": "com.kbstar.gzeropay",
+  "developer": "KB국민은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신한 슈퍼SOL - 신한 유니버셜 금융 앱",
+   "신한 SOL",
+   "신한 쏠",
+   "쏠뱅크",
+   "신한은행",
+   "신한 슈퍼SOL"
+  ],
+  "package": "com.shinhan.sbanking",
+  "developer": "Shinhan Bank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신한 SOL Biz - 신한은행 기업스마트폰뱅킹",
+   "신한 SOL Biz",
+   "신한은행 기업"
+  ],
+  "package": "com.shinhan.sbizbank",
+  "developer": "Shinhan Bank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신한 SOL Global"
+  ],
+  "package": "com.shinhan.foreignerbank",
+  "developer": "Shinhan Bank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "서울시 세금납부 - 서울시 STAX",
+   "서울시 STAX"
+  ],
+  "package": "com.shinhan.stax",
+  "developer": "Shinhan Bank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우리은행 우리WON뱅킹",
+   "우리WON뱅킹",
+   "우리은행",
+   "우리원뱅킹"
+  ],
+  "package": "com.wooribank.smart.npib",
+  "developer": "WooriBank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우리WON뱅킹 기업 - 우리은행",
+   "우리WON뱅킹 기업",
+   "우리은행 기업"
+  ],
+  "package": "com.wooribank.smart.biz",
+  "developer": "WooriBank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우리WON글로벌"
+  ],
+  "package": "com.wooribank.smlg_android",
+  "developer": "WooriBank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "하나은행, 새로워진 하나원큐를 경험해보세요",
+   "하나원큐",
+   "하나은행",
+   "원큐"
+  ],
+  "package": "com.hanabank.oqf",
+  "developer": "Hanabank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "(구)하나원큐 – 종료 예정",
+   "(구)하나원큐",
+   "하나원큐"
+  ],
+  "package": "com.kebhana.hanapush",
+  "developer": "Hanabank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "하나원큐 기업 - 하나은행 기업스마트폰뱅킹",
+   "하나원큐 기업",
+   "하나은행 기업"
+  ],
+  "package": "com.hanabank.ebk.channel.android.cpb",
+  "developer": "Hanabank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "Hana EZ(하나이지) 하나은행 해외송금 전용 뱅킹앱",
+   "Hana EZ",
+   "하나이지"
+  ],
+  "package": "com.kebhana.hanasfbank",
+  "developer": "Hanabank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "Hana Bank - 1Q Bank",
+   "Hana Bank 1Q Bank"
+  ],
+  "package": "com.hanafn.oneqgrbs",
+  "developer": "Hanabank",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "NH스마트뱅킹",
+   "농협",
+   "농협은행",
+   "NH농협"
+  ],
+  "package": "nh.smart.banking",
+  "developer": "농협",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "NH올원뱅크(농협은행 대표 플랫폼)",
+   "NH올원뱅크",
+   "올원뱅크",
+   "농협은행"
+  ],
+  "package": "com.nonghyup.nhallonebank",
+  "developer": "NH농협은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "NH콕뱅크(농협)",
+   "NH콕뱅크",
+   "콕뱅크",
+   "지역농협",
+   "축협"
+  ],
+  "package": "nh.smart.nhcok",
+  "developer": "농협",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "NH기업뱅킹",
+   "농협 기업"
+  ],
+  "package": "nh.smart.ncbank",
+  "developer": "주식회사 농협은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "i-ONE Bank - 개인고객용",
+   "i-ONE Bank",
+   "아이원뱅크",
+   "IBK기업은행",
+   "기업은행"
+  ],
+  "package": "com.ibk.android.ionebank",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "i-ONE Bank - 기업용",
+   "i-ONE Bank 기업용",
+   "기업은행 기업"
+  ],
+  "package": "com.ibk.android.kiup",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "i-ONE Bank 미니"
+  ],
+  "package": "com.ibk.neobanking.silver",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "i-ONE Bank Global"
+  ],
+  "package": "com.ibk.neobanking.mini",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "(종료) i-ONE Bank - 기업용",
+   "(종료) i-ONE Bank 기업용"
+  ],
+  "package": "com.ibk.scbs",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "SC제일은행 모바일뱅킹",
+   "SC제일은행",
+   "제일은행",
+   "SC은행"
+  ],
+  "package": "com.scbank.ma30",
+  "developer": "SC제일은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "셀프ATM by SC제일은행",
+   "셀프ATM"
+  ],
+  "package": "com.scbank.selfatm",
+  "developer": "SC제일은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "씨티모바일",
+   "씨티은행",
+   "한국씨티은행"
+  ],
+  "package": "kr.co.citibank.citimobile",
+  "developer": "한국씨티은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "카카오뱅크",
+   "카뱅"
+  ],
+  "package": "com.kakaobank.channel",
+  "developer": "KakaoBank Corp.",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "케이뱅크",
+   "K뱅크"
+  ],
+  "package": "com.kbankwith.smartbank",
+  "developer": "케이뱅크",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "케이뱅크 기업뱅킹"
+  ],
+  "package": "com.kbankwith.cbzbank",
+  "developer": "케이뱅크",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "토스",
+   "토스뱅크",
+   "토스증권",
+   "토스페이",
+   "Toss"
+  ],
+  "package": "viva.republica.toss",
+  "developer": "Viva Republica",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "토스 비즈니스"
+  ],
+  "package": "im.toss.business",
+  "developer": "Viva Republica",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "MG더뱅킹",
+   "새마을금고",
+   "MG새마을금고",
+   "더뱅킹"
+  ],
+  "package": "com.smg.spbs",
+  "developer": "MG새마을금고",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "MG더뱅킹기업",
+   "새마을금고 기업"
+  ],
+  "package": "kr.co.kfcc.csb",
+  "developer": "MG새마을금고",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "MG새마을금고보험"
+  ],
+  "package": "kr.kfcc.insurance",
+  "developer": "MG새마을금고",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신협 온뱅크",
+   "신협",
+   "온뱅크"
+  ],
+  "package": "kr.co.cu.onbank",
+  "developer": "credit union",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신협ON뱅크 기업"
+  ],
+  "package": "kr.co.cu.bizonbank",
+  "developer": "credit union",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신협 라이프온"
+  ],
+  "package": "kr.co.cu.lifeapp",
+  "developer": "credit union",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우체국뱅킹",
+   "우체국 예금",
+   "우체국금융"
+  ],
+  "package": "com.epost.psf.sdsi",
+  "developer": "우체국금융",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우체국페이"
+  ],
+  "package": "com.epost.psf.ss",
+  "developer": "우체국금융",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우체국보험"
+  ],
+  "package": "com.epost.insu",
+  "developer": "우체국금융",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "수협 헤이뱅크",
+   "헤이뱅크",
+   "수협은행",
+   "수협"
+  ],
+  "package": "com.suhyup.pesmb",
+  "developer": "수협은행 스마트폰뱅킹",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "수협 파트너뱅크 개인",
+   "수협 파트너뱅크",
+   "수협은행"
+  ],
+  "package": "com.suhyup.psmb",
+  "developer": "수협은행 스마트폰뱅킹",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "수협 파트너뱅크 기업"
+  ],
+  "package": "com.suhyup.bsmb",
+  "developer": "수협은행 스마트폰뱅킹",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK부산은행 모바일뱅킹",
+   "BNK부산은행",
+   "부산은행"
+  ],
+  "package": "kr.co.busanbank.mbp",
+  "developer": "부산은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK 부산은행 기업뱅킹",
+   "부산은행 기업뱅킹"
+  ],
+  "package": "com.busanbank.mbe",
+  "developer": "부산은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK부산은행 푸시알림",
+   "부산은행 푸시알림"
+  ],
+  "package": "kr.co.bnkbank.push.customer",
+  "developer": "부산은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "부산 동백전",
+   "동백전"
+  ],
+  "package": "kr.co.busanbank.dongbaek",
+  "developer": "부산은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK경남은행 모바일뱅킹",
+   "BNK경남은행",
+   "경남은행"
+  ],
+  "package": "com.knb.psb",
+  "developer": "경남은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK경남은행 기업모바일뱅킹",
+   "경남은행 기업"
+  ],
+  "package": "com.knb.csb",
+  "developer": "경남은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "BNK경남은행 모바일알림",
+   "경남은행 모바일알림"
+  ],
+  "package": "com.knb.bsp",
+  "developer": "경남은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "iM뱅크 - 아이엠뱅크 모바일앱뱅킹",
+   "iM뱅크",
+   "아이엠뱅크",
+   "대구은행",
+   "DGB"
+  ],
+  "package": "kr.co.dgb.dgbm",
+  "developer": "(주)아이엠뱅크",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "iM뱅크 기업",
+   "대구은행 기업"
+  ],
+  "package": "kr.co.dgb.dgbb",
+  "developer": "(주)아이엠뱅크",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "iM샵(#) - 지역사랑상품권 대구로페이 포항사랑카드",
+   "iM샵",
+   "대구로페이"
+  ],
+  "package": "kr.co.dgb.dgbmh",
+  "developer": "(주)아이엠뱅크",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "광주 와뱅크",
+   "광주은행",
+   "와뱅크"
+  ],
+  "package": "com.kjbank.asb.pbanking",
+  "developer": "The Kwangju Bank, Ltd.",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "광주은행 기업뱅킹"
+  ],
+  "package": "com.kjbank.asb.cbanking",
+  "developer": "The Kwangju Bank, Ltd.",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "전북은행 - 쏙뱅크",
+   "전북은행",
+   "쏙뱅크",
+   "JB"
+  ],
+  "package": "kr.co.jbbank.privatebank",
+  "developer": "(주)전북은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "전북은행 기업뱅킹"
+  ],
+  "package": "kr.co.jbbank.smartbank",
+  "developer": "(주)전북은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "제주은행 JBANK",
+   "제주은행",
+   "JBANK"
+  ],
+  "package": "com.jejubank.smartnew",
+  "developer": "제주은행(JBANK)",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "한국산업은행 「스마트KDB」",
+   "산업은행",
+   "KDB",
+   "스마트KDB"
+  ],
+  "package": "co.kr.kdb.android.smartkdb",
+  "developer": "한국산업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "한국산업은행 「기업뱅킹 스마트KDB」",
+   "산업은행 기업뱅킹"
+  ],
+  "package": "co.kr.kdb.android.bizsmartkdb",
+  "developer": "한국산업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KDB OnePass"
+  ],
+  "package": "com.onepassauthplus.kdb",
+  "developer": "한국산업은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "SB톡톡플러스",
+   "SB톡톡",
+   "저축은행중앙회",
+   "저축은행"
+  ],
+  "package": "kr.or.sbbank.plus",
+  "developer": "저축은행 중앙회",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "사이다뱅크(교보SBI저축은행)",
+   "사이다뱅크",
+   "SBI저축은행"
+  ],
+  "package": "com.sbi.saidabank",
+  "developer": "SBI저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "OK저축은행"
+  ],
+  "package": "com.cabsoft.oksavingbank",
+  "developer": "OK저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "웰컴디지털뱅크(웰컴저축은행)",
+   "웰컴디지털뱅크",
+   "웰컴저축은행"
+  ],
+  "package": "kr.co.welcomebank.omb",
+  "developer": "웰컴 저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "KB저축은행(키위뱅크)",
+   "KB저축은행",
+   "키위뱅크"
+  ],
+  "package": "com.kbsavings.android",
+  "developer": "KB저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "하나원큐 저축은행 - 디지털뱅킹",
+   "하나저축은행"
+  ],
+  "package": "com.hanasv.smartbanknew",
+  "developer": "하나저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "우리WON저축은행",
+   "우리금융저축은행"
+  ],
+  "package": "com.woorifsb.woorifsbapp",
+  "developer": "(주)우리금융저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "신한 SOL저축은행 - 신한저축은행 디지털뱅크",
+   "신한 SOL저축은행",
+   "신한저축은행"
+  ],
+  "package": "com.shinhan.spbs",
+  "developer": "신한저축",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "IBK저축은행 i-Bank",
+   "IBK저축은행"
+  ],
+  "package": "kr.co.ibksb.ibank",
+  "developer": "IBK저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "NH FIC Bank (NH저축은행)",
+   "NH저축은행"
+  ],
+  "package": "kr.co.nhsavingsbank.m",
+  "developer": "NH저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "다올디지털뱅크Fi(파이)-다올저축은행",
+   "다올저축은행"
+  ],
+  "package": "com.eugene.eugenebank",
+  "developer": "다올저축은행",
+  "verified": true
+ },
+ {
+  "category": "bank",
+  "labels": [
+   "산림조합 스마트뱅킹",
+   "산림조합"
+  ],
+  "package": "kr.or.nfcf.NFCFSmart",
+  "developer": "산림조합중앙회",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "KB Pay",
+   "KB페이",
+   "KB국민카드",
+   "국민카드"
+  ],
+  "package": "com.kbcard.cxh.appcard",
+  "developer": "KB국민카드",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "KB국민기업카드"
+  ],
+  "package": "com.kbcard.kbbusinesscard",
+  "developer": "KB국민카드",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "신한 SOL페이 - 신한카드 대표플랫폼",
+   "신한 SOL페이",
+   "신한카드",
+   "신한페이판",
+   "SOL페이"
+  ],
+  "package": "com.shcard.smartpay",
+  "developer": "SHINHANCARD",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "현대카드"
+  ],
+  "package": "com.hyundaicard.appcard",
+  "developer": "Hyundai Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "현대카드 M몰"
+  ],
+  "package": "com.hyundaiCard.HyundaiCardMPoint",
+  "developer": "Hyundai Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "모니모(삼성금융통합앱) 생명 화재 카드 증권",
+   "모니모",
+   "삼성카드",
+   "삼성금융"
+  ],
+  "package": "net.ib.android.smcard",
+  "developer": "Samsung Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "삼성카드 쇼핑"
+  ],
+  "package": "com.samsungcard.shopping",
+  "developer": "Samsung Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "디지로카(롯데카드)",
+   "디지로카",
+   "롯데카드"
+  ],
+  "package": "com.lcacApp",
+  "developer": "lottecard",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "우리카드 우리WON카드",
+   "우리카드",
+   "우리WON카드"
+  ],
+  "package": "com.wooricard.smartapp",
+  "developer": "우리카드",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "우리WON멤버스"
+  ],
+  "package": "com.wooribank.smart.wwms",
+  "developer": "우리카드",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "하나Pay(하나카드)",
+   "하나Pay",
+   "하나카드",
+   "하나페이"
+  ],
+  "package": "com.hanaskcard.paycla",
+  "developer": "Hana Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "하나머니(트래블로그)",
+   "하나머니",
+   "트래블로그"
+  ],
+  "package": "kr.co.hanamembers.hmscustomer",
+  "developer": "Hana Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "NH pay(NH페이)",
+   "NH pay",
+   "NH페이",
+   "농협카드",
+   "NH농협카드"
+  ],
+  "package": "nh.smart.nhallonepay",
+  "developer": "Nonghyup Card",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "페이북/ISP",
+   "페이북",
+   "ISP",
+   "BC카드",
+   "비씨카드"
+  ],
+  "package": "kvp.jjy.MispAndroid320",
+  "developer": "VP Inc",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "BC QR for Shop"
+  ],
+  "package": "com.bccard.mpm",
+  "developer": "비씨카드",
+  "verified": true
+ },
+ {
+  "category": "card",
+  "labels": [
+   "IBK 카드",
+   "IBK카드",
+   "기업은행 카드"
+  ],
+  "package": "com.ibk.cdp",
+  "developer": "IBK 기업은행",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "삼성증권 mPOP",
+   "삼성증권",
+   "mPOP",
+   "엠팝"
+  ],
+  "package": "com.samsungpop.android.mpop",
+  "developer": "Samsung Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "미래에셋증권 MAPS",
+   "미래에셋증권",
+   "M-STOCK",
+   "MAPS"
+  ],
+  "package": "com.miraeasset.trade",
+  "developer": "Mirae Asset Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "키움증권 영웅문S#-대표MTS(국내/해외주식,계좌개설)",
+   "키움증권",
+   "영웅문",
+   "영웅문S#"
+  ],
+  "package": "com.kiwoom.heromts",
+  "developer": "Kiwoom Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "키움증권 계좌개설"
+  ],
+  "package": "com.kiwoom.app.kiwoomaccount",
+  "developer": "Kiwoom Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "한투-한국투자증권,주식,MTS,증권,주식어플,해외주식",
+   "한국투자증권",
+   "한투"
+  ],
+  "package": "com.truefriend.neosmartarenewal",
+  "developer": "Korea Investment & Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "한국투자증권 eFriend Smart"
+  ],
+  "package": "com.truefriend.smartnewa",
+  "developer": "Korea Investment & Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "미니스탁 - 매일이 즐거운 투자 루틴(국내, 해외주식)",
+   "미니스탁"
+  ],
+  "package": "com.truefriend.ministock",
+  "developer": "Korea Investment & Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "나무증권-NH투자증권 MTS",
+   "나무증권",
+   "NH투자증권",
+   "나무"
+  ],
+  "package": "com.wooriwm.txsmart",
+  "developer": "NH투자증권(주)",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "NH투자증권 N2",
+   "QV"
+  ],
+  "package": "com.wooriwm.mugsmart",
+  "developer": "NH투자증권(주)",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "KB증권 'M-able' (마블) - 대표MTS",
+   "KB증권",
+   "마블",
+   "M-able"
+  ],
+  "package": "com.kbsec.mts.iplustarngm2",
+  "developer": "KB Securities Co., Ltd",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "신한 SOL증권 - 대표MTS",
+   "신한투자증권",
+   "신한 SOL증권"
+  ],
+  "package": "com.shinhaninvest.nsmts",
+  "developer": "Shinhan Securities Co.,Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "하나증권V-대표MTS(NEW)",
+   "하나증권"
+  ],
+  "package": "com.hanasec.pro",
+  "developer": "Hana Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "원큐프로",
+   "하나증권"
+  ],
+  "package": "com.hanasec.stock",
+  "developer": "Hana Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "원큐스탁 (계좌개설 포함)",
+   "원큐스탁"
+  ],
+  "package": "com.hanasec.spstock",
+  "developer": "Hana Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "대신증권크레온 - 대신증권MTS",
+   "대신증권",
+   "크레온"
+  ],
+  "package": "com.daishin.creon",
+  "developer": "daishin securities",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "대신증권 CYBOS Touch",
+   "대신증권 CYBOS"
+  ],
+  "package": "com.daishin",
+  "developer": "daishin securities",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "메리츠증권 - 메리츠 SMART",
+   "메리츠증권"
+  ],
+  "package": "com.imeritz.smartmeritz",
+  "developer": "메리츠증권",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "LS증권 투혼(MTS)-(구 이베스트 온)",
+   "LS증권",
+   "이베스트",
+   "투혼"
+  ],
+  "package": "com.ebest.mobile",
+  "developer": "LS Securities Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "유안타증권 티레이더M(대표MTS)",
+   "유안타증권",
+   "티레이더"
+  ],
+  "package": "com.yuanta.tradars",
+  "developer": "Yuanta Securities Korea Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "DB증권 MTS(알파증권)",
+   "DB증권",
+   "DB금융투자"
+  ],
+  "package": "com.dbfi.xts",
+  "developer": "DB Securities Co.,Ltd.",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "교보증권 Win.K",
+   "교보증권",
+   "Win.K"
+  ],
+  "package": "kr.com.wink",
+  "developer": "교보증권",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "우리투자증권 우리WON MTS(증권)",
+   "우리투자증권",
+   "우리WON MTS"
+  ],
+  "package": "com.wooriib.wonmts",
+  "developer": "우리투자증권",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "한화투자증권 MTS (대표MTS)",
+   "한화투자증권"
+  ],
+  "package": "plus.steps.sapp",
+  "developer": "한화투자증권(주)",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "IBK투자증권 (대표MTS)",
+   "IBK투자증권"
+  ],
+  "package": "com.ibks.ione.mts",
+  "developer": "IBK투자증권",
+  "verified": true
+ },
+ {
+  "category": "securities",
+  "labels": [
+   "SK증권 주파수3 (주식/선물거래, 계좌개설, 뱅킹)",
+   "SK증권",
+   "주파수"
+  ],
+  "package": "com.sks.android.neojoopasoo",
+  "developer": "SK 증권",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "카카오페이",
+   "카카오페이증권"
+  ],
+  "package": "com.kakaopay.app",
+  "developer": "kakaopay corp.",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "네이버페이",
+   "Npay"
+  ],
+  "package": "com.naverfin.payapp",
+  "developer": "NAVER FINANCIAL",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "PAYCO - 페이코, 혜택까지 똑똑한 간편결제",
+   "페이코",
+   "PAYCO"
+  ],
+  "package": "com.nhnent.payapp",
+  "developer": "NHN Corp.",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "삼성 월렛",
+   "삼성월렛",
+   "삼성페이",
+   "Samsung Wallet"
+  ],
+  "package": "com.samsung.android.spay",
+  "developer": "Samsung Electronics Co.,  Ltd.",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "L.POINT with L.PAY",
+   "엘포인트",
+   "L.POINT",
+   "L.PAY"
+  ],
+  "package": "com.lottemembers.android",
+  "developer": "Lotte Members Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "Google Wallet",
+   "구글 월렛"
+  ],
+  "package": "com.google.android.apps.walletnfcrel",
+  "developer": "Google LLC",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "SSGPAY - 혜택 위의 혜택",
+   "SSGPAY",
+   "쓱페이"
+  ],
+  "package": "com.ssg.serviceapp.android.egiftcertificate",
+  "developer": "SSG Payments Corp",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "스마일페이 SmilePay – 똑똑한 쇼핑습관",
+   "스마일페이"
+  ],
+  "package": "com.mysmilepay.app",
+  "developer": "Smile Payments Corp.",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "제로페이(가맹점)",
+   "제로페이 가맹점"
+  ],
+  "package": "kr.or.zeropay.zip",
+  "developer": "재단법인 한국간편결제진흥원",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "제로페이맵 (Zeropay Map)",
+   "제로페이맵"
+  ],
+  "package": "kr.or.zeropay.zmap",
+  "developer": "재단법인 한국간편결제진흥원",
+  "verified": true
+ },
+ {
+  "category": "pay",
+  "labels": [
+   "디지털온누리",
+   "온누리상품권"
+  ],
+  "package": "com.komsco.kpay",
+  "developer": "KOMSCO",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "한화생명"
+  ],
+  "package": "com.hanwhalife.hiw",
+  "developer": "한화생명",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "한화손보",
+   "한화손해보험"
+  ],
+  "package": "com.hanwha.hima",
+  "developer": "한화손보 공식 애플리케이션",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "한화손보 캐롯",
+   "캐롯",
+   "캐롯손해보험"
+  ],
+  "package": "com.carrotins.www",
+  "developer": "한화손보",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "교보생명 - 오늘도 교보로부터",
+   "교보생명"
+  ],
+  "package": "com.kyobo.app",
+  "developer": "교보생명",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "교보 라플레이(건강한 일상, 쌓이는 혜택)",
+   "교보 라플레이",
+   "교보라이프플래닛"
+  ],
+  "package": "com.kyobo.lifeplanet.insurance",
+  "developer": "교보라이프플래닛생명보험(주)",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "DB손해보험",
+   "DB손보"
+  ],
+  "package": "com.idongbusmart",
+  "developer": "DB손해보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "DB손해보험 다이렉트 공식 앱",
+   "DB손해보험 다이렉트"
+  ],
+  "package": "com.dongbudirect.cm",
+  "developer": "DB손해보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "현대해상"
+  ],
+  "package": "m.hi.co.kr",
+  "developer": "현대해상화재보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "현대해상 다이렉트 공식 APP",
+   "현대해상 다이렉트"
+  ],
+  "package": "kr.co.direct.hi.hyundai.android",
+  "developer": "현대해상화재보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "KB손해보험 공식앱 (대표+다이렉트 통합)",
+   "KB손해보험",
+   "KB손보"
+  ],
+  "package": "com.kbins.kbinsure",
+  "developer": "KB손해보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "메리츠화재 공식 앱",
+   "메리츠화재"
+  ],
+  "package": "com.kr.meritzfire",
+  "developer": "메리츠화재해상보험주식회사",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "신한 SOL라이프 - 신한라이프 대표플랫폼",
+   "신한라이프",
+   "신한 SOL라이프"
+  ],
+  "package": "com.AFSSHLife",
+  "developer": "ShinhanLife",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "NH농협생명",
+   "농협생명"
+  ],
+  "package": "com.nhlife.customer.mobile",
+  "developer": "NH농협생명",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "흥국생명 모바일",
+   "흥국생명"
+  ],
+  "package": "kr.co.heungkuklife.hklifem",
+  "developer": "흥국생명보험주식회사",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "동양생명 모바일",
+   "동양생명"
+  ],
+  "package": "com.insure.mas.aos",
+  "developer": "동양생명보험(주)",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "미래에셋생명 M-LIFE",
+   "미래에셋생명"
+  ],
+  "package": "com.mMiraeAssetLife",
+  "developer": "Mirae Asset Life Insurance Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "라이나생명 모바일",
+   "라이나생명"
+  ],
+  "package": "lina.channel.ldc.app",
+  "developer": "라이나생명",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "AIA생명"
+  ],
+  "package": "com.aia.plus.kr",
+  "developer": "AIA생명",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "하나손해보험 공식앱 (원큐손보)",
+   "하나손해보험",
+   "원큐손보"
+  ],
+  "package": "educar.hybrid.android",
+  "developer": "하나손해보험",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "AXA손해보험 공식앱",
+   "AXA손해보험"
+  ],
+  "package": "kr.co.deotis.axa",
+  "developer": "AXA General Insurance CO.,LTD (Korea)",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "실손24"
+  ],
+  "package": "kr.or.silson.KACR",
+  "developer": "보험개발원",
+  "verified": true
+ },
+ {
+  "category": "insurance",
+  "labels": [
+   "KDB생명 모바일창구",
+   "KDB생명"
+  ],
+  "package": "kr.co.kdblife.mics",
+  "developer": "KDBLIFE Insurance",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "정부24(구 민원24)",
+   "정부24",
+   "민원24"
+  ],
+  "package": "kr.go.minwon.m",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "대한민국 모바일신분증",
+   "모바일신분증",
+   "모바일 신분증"
+  ],
+  "package": "kr.go.mobileid",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "모바일신분증 검증앱"
+  ],
+  "package": "kr.go.verify.mobileid",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "정부OTP"
+  ],
+  "package": "com.koreaexpert.irukey.gotp",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "국세청 홈택스 [손택스]",
+   "손택스",
+   "홈택스",
+   "국세청"
+  ],
+  "package": "kr.go.nts.android",
+  "developer": "National Tax Service, Korea",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "스마트 위택스",
+   "위택스"
+  ],
+  "package": "kr.go.wetax.android",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "경찰민원24",
+   "경찰청"
+  ],
+  "package": "kr.go.police.minwon24",
+  "developer": "경찰청",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "112신고앱",
+   "112",
+   "경찰청"
+  ],
+  "package": "go.police.report",
+  "developer": "경찰청",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "교통민원24(이파인)",
+   "교통민원24",
+   "이파인",
+   "경찰청"
+  ],
+  "package": "com.dreamsecurity.MobileRelay.SampleCrypto",
+  "developer": "경찰청",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "안전Dream - 아동·여성·장애인경찰지원센터",
+   "안전Dream"
+  ],
+  "package": "com.bluewave.policeapp",
+  "developer": "경찰청",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "형사사법포털",
+   "검찰",
+   "검찰청",
+   "형사사법"
+  ],
+  "package": "kr.go.kics.and",
+  "developer": "법무부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "법무부 온라인민원서비스",
+   "법무부 온라인민원"
+  ],
+  "package": "kr.go.moj.minwon",
+  "developer": "법무부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "법무부 스마트 접견 2.0",
+   "법무부 스마트 접견"
+  ],
+  "package": "com.rsupport.rvs.kcs.smart",
+  "developer": "법무부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "금융감독원 모바일 전자공시(DART)",
+   "금융감독원 DART",
+   "금융감독원",
+   "금감원",
+   "전자공시"
+  ],
+  "package": "com.mdart.app2",
+  "developer": "금융감독원(FSS)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "건강보험25시",
+   "The건강보험",
+   "국민건강보험",
+   "건강보험공단"
+  ],
+  "package": "kr.or.nhic",
+  "developer": "국민건강보험공단",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "모바일 건강보험증"
+  ],
+  "package": "kr.or.nhiq",
+  "developer": "국민건강보험공단",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "스마트장기요양"
+  ],
+  "package": "kr.or.nhis.longtermcare.android",
+  "developer": "국민건강보험공단.",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "내 곁에 국민연금",
+   "국민연금"
+  ],
+  "package": "kr.or.nps.smart",
+  "developer": "National Pension Service",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "비대면 국민연금 수급권 확인 서비스",
+   "비대면 국민연금 수급권 확인"
+  ],
+  "package": "com.nps.pnsr",
+  "developer": "National Pension Service",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "전자소송포털",
+   "전자소송",
+   "대법원",
+   "법원"
+  ],
+  "package": "go.scourt.mcs",
+  "developer": "대법원",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "인터넷등기소"
+  ],
+  "package": "kr.go.iros",
+  "developer": "대법원",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "우체국",
+   "우체국 택배",
+   "우편"
+  ],
+  "package": "kr.go.epost.app.findZip",
+  "developer": "우정사업본부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "우체국쇼핑"
+  ],
+  "package": "kr.go.epost.mobile.app",
+  "developer": "우정사업본부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "모바일우편함"
+  ],
+  "package": "kr.go.epost.postok",
+  "developer": "우정사업본부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "어카운트인포-계좌통합관리",
+   "어카운트인포",
+   "계좌정보통합관리",
+   "페이인포",
+   "금융결제원"
+  ],
+  "package": "com.kftc.payinfo.android",
+  "developer": "금융결제원(KFTC)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "모바일지로"
+  ],
+  "package": "kr.or.giro.android",
+  "developer": "금융결제원(KFTC)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "바이오인증 공동앱"
+  ],
+  "package": "org.kftc.fido.lnk.lnk_app",
+  "developer": "금융결제원(KFTC)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "디지털OTP"
+  ],
+  "package": "kr.or.kftc.fsc",
+  "developer": "금융결제원(KFTC)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "서민금융 잇다",
+   "서민금융진흥원"
+  ],
+  "package": "kr.or.knfa.nfcs.m",
+  "developer": "서민금융진흥원",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "신용회복위원회"
+  ],
+  "package": "kr.or.ccrs.cyber",
+  "developer": "새로미",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "KDIC 금융안심포털",
+   "예금보험공사"
+  ],
+  "package": "kr.or.kdic.kcs",
+  "developer": "예금보험공사",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "건강e음",
+   "심평원"
+  ],
+  "package": "com.yagins.hiraportal",
+  "developer": "건강보험심사평가원",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "복지로"
+  ],
+  "package": "app.kr.go.bokjiro",
+  "developer": "보건복지부(www.mohw.go.kr)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "고용24"
+  ],
+  "package": "kr.or.keis.mo",
+  "developer": "KoreaEmploymentInformationService",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "TOUCH! 산재고용",
+   "근로복지공단",
+   "산재고용"
+  ],
+  "package": "kr.or.comwel.cswelfare",
+  "developer": "(근로복지공단)",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "안심전세",
+   "주택도시보증공사",
+   "HUG"
+  ],
+  "package": "org.khug.khmg",
+  "developer": "주택도시보증공사",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "스마트주택금융",
+   "주택금융공사"
+  ],
+  "package": "kr.go.hf.hfappandroid",
+  "developer": "한국주택금융공사",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "신용보증기금 ON-Biz",
+   "신용보증기금"
+  ],
+  "package": "kr.co.kodit.app",
+  "developer": "신용보증기금",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "안전디딤돌"
+  ],
+  "package": "kr.or.klid.newsafekorea2025",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "안전신문고(구 스마트국민제보, 생활불편신고)",
+   "안전신문고"
+  ],
+  "package": "kr.go.safepeople",
+  "developer": "행정안전부",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "불법스팸 간편신고",
+   "KISA"
+  ],
+  "package": "kr.co.abydos.reportspam.spam",
+  "developer": "korea internet & security agency",
+  "verified": true
+ },
+ {
+  "category": "gov",
+  "labels": [
+   "119신고"
+  ],
+  "package": "com.winitech.mm119t",
+  "developer": "소방청",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "PASS by SKT – 인증을 넘어 일상으로 PASS",
+   "PASS",
+   "패스",
+   "PASS SKT",
+   "SKT 인증"
+  ],
+  "package": "com.sktelecom.tauth",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "PASS by KT - 인증을 넘어 일상으로 PASS",
+   "PASS",
+   "패스",
+   "PASS KT",
+   "KT 인증"
+  ],
+  "package": "com.kt.ktauth",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "PASS by U+ - 인증을 넘어 일상으로 PASS",
+   "PASS",
+   "패스",
+   "PASS U+",
+   "LG U+ 인증"
+  ],
+  "package": "com.lguplus.smartotp",
+  "developer": "LG유플러스(LG Uplus Corporation)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "T world - SKT 데이터/요금 확인, 맞춤 혜택",
+   "T world",
+   "티월드",
+   "SKT 고객센터"
+  ],
+  "package": "Com.sktelecom.minit",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "T 멤버십 – 할인과 적립을 원하는 대로, 맞춤형 혜택",
+   "T 멤버십"
+  ],
+  "package": "com.tms",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "마이케이티",
+   "KT 고객센터"
+  ],
+  "package": "com.ktshow.cs",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "KT 멤버십"
+  ],
+  "package": "com.olleh.android.oc2",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "KT 마이알뜰폰"
+  ],
+  "package": "com.kt.ktmyr",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "U+one-요금/가입/로밍/멤버십",
+   "U+one",
+   "유플러스 고객센터",
+   "U+ 고객센터"
+  ],
+  "package": "com.lguplus.mobile.cs",
+  "developer": "LG유플러스(LG Uplus Corporation)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "U+모바일매니저"
+  ],
+  "package": "lgt.call",
+  "developer": "LG유플러스(LG Uplus Corporation)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "에이닷 전화",
+   "T전화"
+  ],
+  "package": "com.skt.prod.dialer",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "에이닷 - 나만의 AI 개인비서",
+   "에이닷"
+  ],
+  "package": "com.skt.nugu.apollo",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "T 통화매니저"
+  ],
+  "package": "com.moent.vas",
+  "developer": "SKTelecom",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "익시오(ixi-O)",
+   "익시오",
+   "ixi-O"
+  ],
+  "package": "com.lguplus.aicallagent",
+  "developer": "LG유플러스(LG Uplus Corporation)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "U+스팸차단"
+  ],
+  "package": "com.lguplus.blocksmishing",
+  "developer": "LG유플러스(LG Uplus Corporation)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "KT 스팸차단"
+  ],
+  "package": "com.olleh.spam",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "후후 - 함께 쓰면 더 좋은 안전 안심 서비스",
+   "후후",
+   "whowho"
+  ],
+  "package": "com.ktcs.whowho",
+  "developer": "VP (Inc)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "후후라이트,안전안심서비스-스팸차단과 상대번호정보 확인",
+   "후후라이트"
+  ],
+  "package": "com.whox2.lguplus",
+  "developer": "VP (Inc)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "후스콜: 글로벌 전화·스팸 사기 차단 앱",
+   "후스콜",
+   "Whoscall"
+  ],
+  "package": "gogolook.callgogolook2",
+  "developer": "Gogolook",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "KT 안심박스"
+  ],
+  "package": "com.kt.familysafeandroid",
+  "developer": "KT Corporation",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "스마트공동인증 (SKT/KT/LGU+ 전용)",
+   "스마트공동인증"
+  ],
+  "package": "com.dreamsecurity.skt.usim",
+  "developer": "드림시큐리티",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "통합인증센터(전자인증센터)",
+   "통합인증센터",
+   "한국전자인증"
+  ],
+  "package": "com.crosscert.android",
+  "developer": "한국전자인증(주)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "KICASignPlus",
+   "한국정보인증"
+  ],
+  "package": "com.kica.android.app",
+  "developer": "한국정보인증(주)",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "kt M모바일"
+  ],
+  "package": "kt.co.ktmmobile",
+  "developer": "케이티엠모바일",
+  "verified": true
+ },
+ {
+  "category": "carrier",
+  "labels": [
+   "U+유모바일"
+  ],
+  "package": "com.medialog.umobi.customerservice",
+  "developer": "미디어로그(Medialog Corp.)",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "카카오톡 KakaoTalk",
+   "카카오톡",
+   "카톡",
+   "KakaoTalk"
+  ],
+  "package": "com.kakao.talk",
+  "developer": "Kakao Corp.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "카카오스토리 KakaoStory",
+   "카카오스토리"
+  ],
+  "package": "com.kakao.story",
+  "developer": "Kakao Corp.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "텔레그램 공식 앱 Telegram",
+   "텔레그램",
+   "Telegram"
+  ],
+  "package": "org.telegram.messenger",
+  "developer": "Telegram FZ-LLC",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Telegram X",
+   "텔레그램"
+  ],
+  "package": "org.thunderdog.challegram",
+  "developer": "Telegram FZ-LLC",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "밴드",
+   "BAND"
+  ],
+  "package": "com.nhn.android.band",
+  "developer": "NAVER Corp.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "라인 LINE",
+   "라인",
+   "LINE"
+  ],
+  "package": "jp.naver.line.android",
+  "developer": "LINE (LY Corporation)",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "WhatsApp Messenger",
+   "왓츠앱",
+   "WhatsApp"
+  ],
+  "package": "com.whatsapp",
+  "developer": "WhatsApp LLC",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Messenger",
+   "메신저",
+   "페이스북 메신저"
+  ],
+  "package": "com.facebook.orca",
+  "developer": "Meta Platforms, Inc.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Facebook",
+   "페이스북"
+  ],
+  "package": "com.facebook.katana",
+  "developer": "Meta Platforms, Inc.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Instagram",
+   "인스타그램"
+  ],
+  "package": "com.instagram.android",
+  "developer": "Instagram",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Signal - 안전한 메신저",
+   "시그널",
+   "Signal"
+  ],
+  "package": "org.thoughtcrime.securesms",
+  "developer": "Signal Foundation",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Discord - 대화, 플레이, 어울리기",
+   "디스코드",
+   "Discord"
+  ],
+  "package": "com.discord",
+  "developer": "Discord Inc.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Rakuten Viber Messenger",
+   "바이버",
+   "Viber"
+  ],
+  "package": "com.viber.voip",
+  "developer": "Viber Media",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "WeChat",
+   "위챗"
+  ],
+  "package": "com.tencent.mm",
+  "developer": "WeChat",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Zoom Workplace",
+   "줌",
+   "Zoom"
+  ],
+  "package": "us.zoom.videomeetings",
+  "developer": "zoom.com",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "Google 메시지",
+   "메시지"
+  ],
+  "package": "com.google.android.apps.messaging",
+  "developer": "Google LLC",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "네이버 - NAVER",
+   "네이버",
+   "NAVER"
+  ],
+  "package": "com.nhn.android.search",
+  "developer": "NAVER Corp.",
+  "verified": true
+ },
+ {
+  "category": "messenger",
+  "labels": [
+   "다음 - Daum",
+   "다음",
+   "Daum"
+  ],
+  "package": "net.daum.android.daum",
+  "developer": "Daum Corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "CJ대한통운 오네",
+   "CJ대한통운",
+   "대한통운",
+   "오네",
+   "CJ택배"
+  ],
+  "package": "com.cjkoreaexpress",
+  "developer": "씨제이대한통운(주)",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "한진택배",
+   "한진"
+  ],
+  "package": "com.hanjintransportation.oneclick",
+  "developer": "HANJIN Logistics Corporation",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "롯데택배",
+   "롯데글로벌로지스"
+  ],
+  "package": "com.glogis.lemp.malcs",
+  "developer": "Lotte Global Logistics Co., Ltd.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "로젠택배",
+   "로젠"
+  ],
+  "package": "com.ilogen.delivery",
+  "developer": "Logen Co.,Ltd",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "스마트택배 - 모든 택배조회, 쇼핑관리",
+   "스마트택배"
+  ],
+  "package": "com.sweettracker.smartparcel",
+  "developer": "Blumn AI corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "CU편의점택배"
+  ],
+  "package": "kr.ac.fspmobile.cu",
+  "developer": "주)비지에프네트웍스",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "쿠팡(Coupang)-모바일 쇼핑",
+   "쿠팡",
+   "Coupang"
+  ],
+  "package": "com.coupang.mobile",
+  "developer": "Coupang Corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "쿠팡이츠 - 와우회원 배달비 0원",
+   "쿠팡이츠"
+  ],
+  "package": "com.coupang.mobile.eats",
+  "developer": "Coupang Corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "쿠팡플레이"
+  ],
+  "package": "com.coupang.mobile.play",
+  "developer": "Coupang Corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "배달의민족",
+   "배민"
+  ],
+  "package": "com.sampleapp",
+  "developer": "WoowaBrothers",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "요기요 - 배달할 때마다 포인트 적립",
+   "요기요"
+  ],
+  "package": "com.fineapp.yogiyo",
+  "developer": "Wesang Co.,Ltd.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "G마켓",
+   "지마켓"
+  ],
+  "package": "com.ebay.kr.gmarket",
+  "developer": "G마켓",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "모바일 쇼핑은 옥션",
+   "옥션"
+  ],
+  "package": "com.ebay.kr.auction",
+  "developer": "Auction",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "11번가"
+  ],
+  "package": "com.elevenst",
+  "developer": "11번가(주)",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "컬리 - 마켓컬리, 뷰티컬리",
+   "컬리",
+   "마켓컬리"
+  ],
+  "package": "com.dbs.kurly.m2",
+  "developer": "(주)컬리",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "SSG.COM",
+   "쓱"
+  ],
+  "package": "kr.co.ssg",
+  "developer": "SSG.COM",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "롯데ON - 나를 닮은 브랜드가 모인 곳",
+   "롯데ON",
+   "롯데온"
+  ],
+  "package": "com.lotte",
+  "developer": "Lotteshopping Co., ltd",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "GS SHOP",
+   "GS샵"
+  ],
+  "package": "gsshop.mobile.v2",
+  "developer": "GS Retail",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "CJ온스타일"
+  ],
+  "package": "com.cjoshppingphone",
+  "developer": "CJ ENM",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "네이버플러스 스토어",
+   "네이버쇼핑"
+  ],
+  "package": "com.navercorp.navershopping",
+  "developer": "NAVER Corp.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "당근 - 당신 근처의 지역 생활 커뮤니티",
+   "당근",
+   "당근마켓"
+  ],
+  "package": "com.towneers.www",
+  "developer": "Danggeun Market Inc.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "번개장터"
+  ],
+  "package": "kr.co.quicket",
+  "developer": "번개장터 주식회사",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "중고나라 - 안심되는 중고거래",
+   "중고나라"
+  ],
+  "package": "com.elz.secondhandstore",
+  "developer": "Joonggonara Inc.",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "Temu: 억만장자처럼 쇼핑하기",
+   "테무",
+   "Temu"
+  ],
+  "package": "com.einnovation.temu",
+  "developer": "Temu",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "AliExpress",
+   "알리익스프레스",
+   "알리"
+  ],
+  "package": "com.alibaba.aliexpresshd",
+  "developer": "Alibaba Mobile",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "온라인 패션 스토어 무신사",
+   "무신사"
+  ],
+  "package": "com.musinsa.store",
+  "developer": "MUSINSA Co.,Ltd",
+  "verified": true
+ },
+ {
+  "category": "delivery",
+  "labels": [
+   "오늘의집 - 라이프스타일 슈퍼앱",
+   "오늘의집"
+  ],
+  "package": "net.bucketplace",
+  "developer": "BUCKETPLACE",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "V3 Mobile Security 백신/클리너/보안",
+   "V3",
+   "V3 Mobile Security",
+   "안랩"
+  ],
+  "package": "com.ahnlab.v3mobilesecurity.soda",
+  "developer": "AhnLab Inc.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "V3 Mobile Plus",
+   "V3 모바일 플러스"
+  ],
+  "package": "com.ahnlab.v3mobileplus",
+  "developer": "AhnLab Inc.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "알약M-모바일백신·보안·스미싱피싱차단·알림·메모리정리",
+   "알약",
+   "알약M"
+  ],
+  "package": "com.estsoft.alyac",
+  "developer": "ESTsecurity Corp.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "네이버 백신"
+  ],
+  "package": "jp.naver.lineantivirus.android",
+  "developer": "NAVER Cloud Corp.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "시티즌코난 - 보이스피싱,스미싱,피싱아이즈,사기예방",
+   "시티즌코난",
+   "피싱아이즈",
+   "사이버캅"
+  ],
+  "package": "com.infinigru.phishingeyes.premium",
+  "developer": "(주)인피니그루",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "피싱아이즈 - 보이스피싱,피싱차단,스미싱,시티즌코난",
+   "피싱아이즈",
+   "시티즌코난"
+  ],
+  "package": "com.infinigru.lite.phishingeyes",
+  "developer": "(주)인피니그루",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "(구)시티즌코난 - 피싱아이즈 폴리스,보이스피싱,스미싱",
+   "(구)시티즌코난",
+   "피싱아이즈 폴리스",
+   "사이버캅"
+  ],
+  "package": "com.infinigru.police.phishingeyes",
+  "developer": "(주)인피니그루",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "NOS Mobile",
+   "nProtect"
+  ],
+  "package": "com.nprotect.nosmobile",
+  "developer": "INCA Internet Co.,Ltd.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "라온 모바일 시큐리티 - 백신, 보안, 딥페이크탐지",
+   "라온 모바일 시큐리티"
+  ],
+  "package": "com.raonsecure.mobile.security",
+  "developer": "라온시큐어",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "스미싱 차단 모바"
+  ],
+  "package": "com.smtnt.mova",
+  "developer": "SMTNT CORP.",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "스미싱쉴드+ — 스미싱·큐싱 예방 & 안심 지킴이",
+   "스미싱쉴드"
+  ],
+  "package": "com.dreamsecurity.smishingshield.smishing_shield",
+  "developer": "드림시큐리티",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "스마트피싱보호 - 보이스피싱, 스미싱, 메신저피싱 예방",
+   "스마트피싱보호"
+  ],
+  "package": "com.datauniverse.antiscam",
+  "developer": "(주)데이터유니버스",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "더치트 - 사기피해 정보공유 공식 앱(인터넷사기,스팸)",
+   "더치트"
+  ],
+  "package": "kr.co.thecheat.thecheat",
+  "developer": "TheCheat Corporation",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Avast One Security 백신/클리너/보안",
+   "어베스트",
+   "Avast"
+  ],
+  "package": "com.avast.android.mobilesecurity",
+  "developer": "Avast Software",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "AVG - 스마트폰 바이러스 제거 ・보안 앱",
+   "AVG"
+  ],
+  "package": "com.antivirus",
+  "developer": "AVG Mobile",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Bitdefender Mobile Security",
+   "비트디펜더",
+   "Bitdefender"
+  ],
+  "package": "com.bitdefender.security",
+  "developer": "Bitdefender",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "McAfee Security: Antivirus VPN",
+   "맥아피",
+   "McAfee"
+  ],
+  "package": "com.wsandroid.suite",
+  "developer": "McAfee LLC",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Norton 360: Mobile Security",
+   "노턴",
+   "Norton"
+  ],
+  "package": "com.symantec.mobilesecurity",
+  "developer": "NortonMobile",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Avira Security Antivirus & VPN",
+   "아비라",
+   "Avira"
+  ],
+  "package": "com.avira.android",
+  "developer": "AVIRA",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "ESET Mobile Security Antivirus",
+   "ESET"
+  ],
+  "package": "com.eset.ems2.gp",
+  "developer": "ESET",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Mobile Security & Antivirus",
+   "트렌드마이크로",
+   "Trend Micro"
+  ],
+  "package": "com.trendmicro.tmmspersonal.apac",
+  "developer": "Trend Micro Incorporated 趨勢科技",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Malwarebytes - Mobile Security",
+   "Malwarebytes",
+   "말웨어바이트"
+  ],
+  "package": "org.malwarebytes.antimalware",
+  "developer": "Malwarebytes",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Microsoft Defender: 바이러스 백신",
+   "Microsoft Defender"
+  ],
+  "package": "com.microsoft.scmx",
+  "developer": "Microsoft Corporation",
+  "verified": true
+ },
+ {
+  "category": "security",
+  "labels": [
+   "Google OTP",
+   "Google Authenticator"
+  ],
+  "package": "com.google.android.apps.authenticator2",
+  "developer": "Google LLC",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "카카오 T - 택시, 세차, 주차, 바이크, 항공, 퀵",
+   "카카오 T",
+   "카카오택시"
+  ],
+  "package": "com.kakao.taxi",
+  "developer": "Kakao Mobility Corp.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "카카오맵 - 지도 / 내비게이션 / 길찾기 / 친구위치",
+   "카카오맵"
+  ],
+  "package": "net.daum.android.map",
+  "developer": "Kakao Corp.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "네이버지도 - 장소의 발견과 예약, 내비게이션",
+   "네이버지도"
+  ],
+  "package": "com.nhn.android.nmap",
+  "developer": "NAVER Corp.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "티맵 - 장소추천, 지도, 운전점수, 대중교통, 대리",
+   "티맵",
+   "TMAP"
+  ],
+  "package": "com.skt.tmap.ku",
+  "developer": "TMAP MOBILITY CO.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "디바이스 케어"
+  ],
+  "package": "com.samsung.android.lool",
+  "developer": "Samsung Electronics Co.,  Ltd.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "Samsung Members"
+  ],
+  "package": "com.samsung.android.voc",
+  "developer": "Samsung Electronics Co.,  Ltd.",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "Google Chrome",
+   "크롬",
+   "Chrome"
+  ],
+  "package": "com.android.chrome",
+  "developer": "Google LLC",
+  "verified": true
+ },
+ {
+  "category": "other",
+  "labels": [
+   "Gmail",
+   "지메일"
+  ],
+  "package": "com.google.android.gm",
+  "developer": "Google LLC",
+  "verified": true
+ }
+]

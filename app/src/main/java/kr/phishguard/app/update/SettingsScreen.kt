@@ -63,6 +63,8 @@ import kr.phishguard.app.scan.TrustList
 import kr.phishguard.app.ui.EmergencyCallButtons
 import kr.phishguard.app.ui.AutoBlockerGuide
 import kr.phishguard.app.ui.ErrorText
+import kr.phishguard.app.ui.IconHideSection
+import kr.phishguard.app.guard.OwnerModeSection
 import kr.phishguard.app.ui.ScreenTitle
 import kr.phishguard.app.ui.SectionTitle
 
@@ -421,6 +423,10 @@ fun SettingsScreen() {
         if (vpnError) {
             ErrorText("VPN 설정 화면을 열 수 없습니다. 휴대폰 설정 앱에서 'VPN'을 검색해 직접 열어 주세요.")
         }
+
+        IconHideSection()
+        OwnerModeSection()
+        kr.phishguard.app.net.VpnGuardSection()
 
         SectionTitle("앱 소개")
         Text("피싱앱 검사기는 휴대폰에 설치된 앱의 권한과 설치 출처를 규칙으로 점검해 의심 앱을 찾고, 통신을 감시하며, 증거를 보존한 뒤 안전하게 삭제하도록 돕습니다.")

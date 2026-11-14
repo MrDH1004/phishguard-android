@@ -43,6 +43,7 @@ object FamilyNotify {
 
     /** 상시 알림 (포그라운드 서비스용) */
     fun ongoing(context: Context, title: String, text: String): Notification {
+        if (QuietMode.isQuiet(context)) return QuietMode.ongoing(context)
         ensureChannels(context)
         return NotificationCompat.Builder(context, CHANNEL_SERVICE)
             .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
@@ -94,10 +95,23 @@ object FamilyNotify {
                     "lock" -> if (e.data.optBoolean("ok")) "$who 1시간 잠금 완료" else "$who 잠금 일부 실패"
                     "block" -> if (e.data.optBoolean("ok")) "$who 인터넷 차단 완료" else "$who 차단 일부 실패"
                     "auto_block" -> "$who: 답이 없어 인터넷을 자동으로 끊었습니다"
+                    FamilyPolicy.TYPE_SUSPEND -> if (e.data.optBoolean("ok")) "$who 앱 정지 완료" else "$who 앱 정지 실패"
+                    FamilyPolicy.TYPE_UNSUSPEND -> if (e.data.optBoolean("ok")) "$who 앱 정지 해제" else "$who 정지 해제 실패"
+                    FamilyPolicy.TYPE_RELEASE_OWNER -> if (e.data.optBoolean("ok")) "$who 관리 모드 해제됨" else "$who 관리 모드 해제 실패"
+                    FamilyPolicy.TYPE_UNINSTALL -> when (e.data.optString("stage")) {
+                        "prompt" -> "$who 삭제 확인 창을 띄웠습니다"
+                        "removed" -> "$who 앱 삭제 완료"
+                        "not_removed" -> "$who 앱이 삭제되지 않았습니다"
+                        else -> "$who 삭제 요청 실패"
+                    }
                     else -> return
                 }
                 head to "$label · ${e.data.optString("message")}"
             }
+            FamilyEvent.TYPE_VPN_REVOKED ->
+                "⚠ $who: 다른 VPN이 차단을 껐습니다" to "부모 폰에서 다른 VPN 앱이 켜져 피싱앱 검사기의 차단 VPN이 꺼졌습니다. 사기범이 원격으로 켰을 수 있으니 전화로 확인하세요."
+            FamilyEvent.TYPE_OWNER_RELEASE_REQUEST ->
+                "$who: 관리 모드 해제 요청" to "부모 폰에서 기기 소유자 모드를 풀어 달라고 합니다. 부모님이 직접 요청한 게 맞는지 전화로 확인한 뒤 가족 탭에서 승인하세요."
             FamilyEvent.TYPE_UNLINKED -> {
                 if (e.data.optString("by") == "child") return // 이 폰에서 직접 끊음
                 "연결이 끊겼습니다: $who" to "부모 폰에서 연결을 끊었습니다. 다시 지켜보려면 새로 연결하세요."
@@ -108,6 +122,10 @@ object FamilyNotify {
     }
 
     fun post(context: Context, id: Int, title: String, text: String, tab: String = TAB_FAMILY) {
+        if (QuietMode.isQuiet(context)) {
+            Log.i(TAG, "부모 폰 조용 모드: 알림 생략 ($title)")
+            return
+        }
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             Log.i(TAG, "알림 권한 없음: $title")
             return

@@ -267,6 +267,26 @@ object LockOverlay {
         }
     }
 
+    /**
+     * 자녀의 삭제 요청: 시스템 삭제 확인 창이 보이게 잠금 화면을 최대 [ms] 동안 비켜 준다 (112 버튼과 같은 방식).
+     * 통화가 아니면 그 시간이 지나거나 [resume]을 부르면 1초 안에 다시 덮는다. 메인 스레드가 아니면 실제로 걷힐 때까지 기다린다.
+     */
+    fun pause(context: Context, ms: Long) {
+        val app = context.applicationContext
+        pauseUntil = System.currentTimeMillis() + ms
+        val done = CountDownLatch(1)
+        main.post {
+            detach(app)
+            done.countDown()
+        }
+        if (Looper.myLooper() != Looper.getMainLooper()) done.await(2, TimeUnit.SECONDS)
+    }
+
+    /** [pause]를 끝내고 잠금이 남아 있으면 다시 덮는다 */
+    fun resume() {
+        pauseUntil = 0
+    }
+
     /** 시간이 다 됨: 풀고 정리 화면으로 (한 번만) */
     private fun finish(context: Context) {
         detach(context)

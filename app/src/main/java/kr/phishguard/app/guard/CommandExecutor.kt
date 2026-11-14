@@ -1,21 +1,31 @@
 package kr.phishguard.app.guard
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.VpnService
+import android.os.PatternMatcher
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kr.phishguard.app.family.FamilyStore
 import kr.phishguard.app.net.BlockList
 import kr.phishguard.app.net.MonitorVpnService
 import kr.phishguard.app.remove.EvidenceExporter
 import kr.phishguard.app.scan.ScanRepository
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 /** 부모 폰: 자녀가 고른 조치를 실행한다. IO 스레드에서 호출. */
 object CommandExecutor {
     private const val TAG = "PG-CommandExec"
 
-    data class Result(val ok: Boolean, val message: String, val lockUntil: Long = 0)
+    /** [stage]: 삭제 요청의 단계 (prompt / removed / not_removed / refused). 다른 명령은 비움 */
+    data class Result(val ok: Boolean, val message: String, val lockUntil: Long = 0, val stage: String = "")
 
     private fun installed(context: Context, pkg: String): Boolean = try {
         context.packageManager.getPackageInfo(pkg, 0)
@@ -72,7 +82,60 @@ object CommandExecutor {
         return Result(shown && blocked.ok, parts.joinToString(" · "), if (shown) until else 0)
     }
 
-    private fun saveEvidence(context: Context, pkg: String): String? {
+    /**
+     * 자녀의 삭제 요청: 시스템 삭제 확인 창을 띄운다 (일반 앱은 몰래 지울 수 없어 옆 사람이 '확인'을 눌러야 함).
+     * 백그라운드에서 화면을 여는 것은 '다른 앱 위에 그리기' 권한이 있어 허용된다. 잠금 화면이 덮고 있으면 잠시 비켜 준다.
+     * 돌려주는 값은 창을 띄웠는지. 실제 삭제 여부는 [GuardPolicy.UNINSTALL_WATCH_MS] 안에 [onFinal]로 따로 알린다 (별도 스레드).
+     */
+    fun uninstall(context: Context, pkg: String, onFinal: (Result) -> Unit): Result {
+        val app = context.applicationContext
+        val removed = CountDownLatch(1)
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                // 업데이트 중 잠깐 지워지는 경우(REPLACING)는 삭제가 아니다
+                if (i.data?.schemeSpecificPart == pkg && !i.getBooleanExtra(Intent.EXTRA_REPLACING, false)) removed.countDown()
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_PACKAGE_REMOVED).apply {
+            addDataScheme("package")
+            addDataSchemeSpecificPart(pkg, PatternMatcher.PATTERN_LITERAL)
+        }
+        // 시스템 브로드캐스트만 받는다
+        ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        val paused = LockStore.active(app) != null
+        if (paused) LockOverlay.pause(app, GuardPolicy.UNINSTALL_WATCH_MS)
+        try {
+            app.startActivity(
+                Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (e: RuntimeException) {
+            // ActivityNotFoundException·SecurityException 등: 창을 못 띄움
+            Log.e(TAG, "삭제 확인 창 열기 실패: $pkg", e)
+            app.unregisterReceiver(receiver)
+            if (paused) LockOverlay.resume()
+            return Result(false, "삭제 확인 창을 열지 못했습니다 (${e.javaClass.simpleName})", stage = "refused")
+        }
+        thread(name = "pg-uninstall-watch", isDaemon = true) {
+            val gone = removed.await(GuardPolicy.UNINSTALL_WATCH_MS, TimeUnit.MILLISECONDS) || !installed(app, pkg)
+            try {
+                app.unregisterReceiver(receiver)
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "삭제 감시 해제 실패", e)
+            }
+            if (paused) LockOverlay.resume()
+            onFinal(
+                if (gone) {
+                    Result(true, "부모 폰에서 앱이 삭제됐습니다", stage = "removed")
+                } else {
+                    Result(false, "${GuardPolicy.UNINSTALL_WATCH_MS / 60_000}분 안에 삭제되지 않았습니다. 삭제 창에서 '취소'를 눌렀거나 아무도 누르지 않았습니다.", stage = "not_removed")
+                },
+            )
+        }
+        return Result(true, "부모 폰에 삭제 확인 창을 띄웠습니다. 옆에 있는 사람이 '확인'을 눌러야 지워집니다.", stage = "prompt")
+    }
+
+    /** 증거 ZIP 저장 (다운로드 폴더). 실패하면 null */
+    fun saveEvidence(context: Context, pkg: String): String? {
         val app = ScanRepository.find(pkg) ?: ScanRepository.rescanPackage(context, pkg) ?: return null
         return try {
             EvidenceExporter.export(context, app).savedTo
